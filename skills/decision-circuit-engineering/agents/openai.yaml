@@ -1,0 +1,4 @@
+interface:
+  display_name: "Decision Circuit Engineering"
+  short_description: "Build typed, inspectable recurring decision circuits"
+  default_prompt: "Use $decision-circuit-engineering to turn my recurring decision into a tested circuit with clear inputs, judgment gates, code checks and an inspectable outcome."
