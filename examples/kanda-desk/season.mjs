@@ -6,11 +6,11 @@
 import { MORNINGS, makeWorld, initialStock, composeMorning, advance, runOut, truth, CONST } from './world.mjs';
 import { judge } from './rulebook.mjs';
 
-export async function runSeason(scenario, seed, decide) {
+export async function runSeason(scenario, seed, decide, { mornings: limit = MORNINGS.length } = {}) {
   const p = makeWorld(scenario, seed);
   const stock = initialStock(p);
   const mornings = [];
-  for (let i = 0; i < MORNINGS.length; i++) {
+  for (let i = 0; i < limit; i++) {
     const { state, facts } = composeMorning(p, stock, i);
     const result = await decide({ scenario, seed, index: i, date: MORNINGS[i], state, facts });
     const decision = result.failed ? null : { purchase: result.purchase, production: result.production, release: result.release };
