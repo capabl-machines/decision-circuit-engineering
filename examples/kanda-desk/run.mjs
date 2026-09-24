@@ -4,6 +4,7 @@
 //   node examples/kanda-desk/run.mjs --out examples/kanda-desk/runs/<name> --max-usd 10
 //
 // Options: --policies jev,llm,baselines  --scenarios normal,rain_shock,...  --seeds 1,2,3
+//          --circuit circuit.json|circuit-v1.1.json|circuit-v2.json
 //          --jev-model jev-1.13.0  --llm-model openai/gpt-6-sol  --max-usd <cap>  --mornings <n>  --dry-run
 // Keys: TYPESAFE_API_KEY and OPENROUTER_API_KEY from the environment.
 
@@ -15,11 +16,9 @@ import { dirname, resolve } from 'node:path';
 import { SCENARIOS, SEEDS } from './world.mjs';
 import { runSeason, doNothing, reorderRule } from './season.mjs';
 import { callJev, callOpenRouter, toQuestion, validateAnswer } from './providers.mjs';
+import { OPERATIONS, erpFrom } from './compute.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const circuitText = readFileSync(resolve(here, 'circuit.json'), 'utf8');
-const circuit = JSON.parse(circuitText);
-const circuitHash = createHash('sha256').update(circuitText).digest('hex');
 
 // Prices checked 2026-09-24: docs.typesafe.ai/models (Jev 1.13: $0.042 per million input tokens,
 // output free) and openrouter.ai/api/v1/models (openai/gpt-6-sol: $2 / $10 per million prompt / completion).
@@ -41,6 +40,10 @@ const llmModel = args['llm-model'] || 'openai/gpt-6-sol';
 const maxUsd = Number(args['max-usd'] || 10);
 const outDir = args.out ? resolve(String(args.out)) : null;
 const morningLimit = args.mornings ? Number(args.mornings) : undefined;
+const circuitFile = String(args.circuit || 'circuit.json');
+const circuitText = readFileSync(resolve(here, circuitFile), 'utf8');
+const circuit = JSON.parse(circuitText);
+const circuitHash = createHash('sha256').update(circuitText).digest('hex');
 
 let spentUsd = 0;
 const estTokens = obj => Math.ceil(JSON.stringify(obj).length / 4);
@@ -68,11 +71,21 @@ function asStateField(gate, a) {
 const INPUT_ROOTS = new Set(['today', 'apmc', 'agent', 'imd', 'news', 'cold_store', 'open_orders', 'production_plan', 'supply_options', 'policy']);
 
 function jevPolicy() {
-  return async ({ state }) => {
-    const fields = {};
+  return async ({ state, facts }) => {
+    const fields = {}, raw = {};
     const stages = [];
+    const erp = erpFrom(facts);
     for (const stage of [1, 2, 3, 4, 5]) {
-      const gates = circuit.gates.filter(g => g.stage === stage);
+      // Compute gates run first; they read only stock records and earlier answers.
+      const computed = {};
+      for (const g of circuit.gates.filter(g => g.stage === stage && g.type === 'compute')) {
+        if (dryRun) { fields[g.field] = '(dry run)'; continue; }
+        const out = OPERATIONS[g.op]({ erp, answers: raw });
+        computed[g.id] = out;
+        fields[g.field] = out;
+      }
+      const gates = circuit.gates.filter(g => g.stage === stage && g.type !== 'compute');
+      if (gates.length === 0) { stages.push({ stage, ok: true, computed }); continue; }
       const reads = [...new Set(gates.flatMap(g => g.reads))];
       const reqState = {};
       for (const path of reads) {
@@ -87,7 +100,7 @@ function jevPolicy() {
       }
       if (spentUsd >= maxUsd) return { failed: true, error: `budget cap of $${maxUsd} reached`, stages };
       const res = await callJev({ model: jevModel, state: reqState, questions });
-      const rec = { stage, ok: res.ok, latencyMs: res.latencyMs, attempts: res.attempts, model: res.body?.model, usage: res.body?.usage, answers: res.body?.answers, error: res.error };
+      const rec = { stage, computed, ok: res.ok, latencyMs: res.latencyMs, attempts: res.attempts, model: res.body?.model, usage: res.body?.usage, answers: res.body?.answers, error: res.error };
       stages.push(rec);
       if (!res.ok) return { failed: true, error: `stage ${stage}: ${res.error}`, stages };
       const price = PRICES[jevModel] || PRICES['jev-1.13.0'];
@@ -97,6 +110,7 @@ function jevPolicy() {
         const problem = validateAnswer(g, res.body.answers?.[g.id]);
         if (problem) { rec.ok = false; rec.error = `${g.id}: ${problem}`; return { failed: true, error: `stage ${stage}: ${g.id}: ${problem}`, stages }; }
         fields[g.field] = asStateField(g, res.body.answers[g.id]);
+        raw[g.id] = res.body.answers[g.id];
       }
     }
     if (dryRun) return { failed: true, error: 'dry run', stages };
@@ -161,7 +175,7 @@ for (const name of selected) {
 }
 
 if (dryRun) {
-  const jev = results.jev?.flatMap(r => r.mornings.flatMap(m => m.result.stages.map(s => s.estInputTokens))) ?? [];
+  const jev = results.jev?.flatMap(r => r.mornings.flatMap(m => m.result.stages.map(s => s.estInputTokens).filter(Boolean))) ?? [];
   const llm = results.llm?.flatMap(r => r.mornings.map(m => m.result.estInputTokens)) ?? [];
   const sum = a => a.reduce((x, y) => x + y, 0);
   console.log(`\nDry run (estimated at 4 characters per token; no requests sent)`);
@@ -181,7 +195,7 @@ if (outDir && !dryRun) {
     for (const r of runs) writeFileSync(resolve(outDir, name, `${r.scenario}-${r.seed}.json`), JSON.stringify(r, null, 1));
   }
   writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({
-    started: started.toISOString(), finished: new Date().toISOString(), commit, circuit: { name: circuit.name, version: circuit.version, sha256: circuitHash },
+    started: started.toISOString(), finished: new Date().toISOString(), commit, circuit: { file: circuitFile, name: circuit.name, version: circuit.version, sha256: circuitHash },
     policies: selected, scenarios, seeds, mornings: morningLimit ?? null, models: { jev: jevModel, llm: llmModel }, prices: PRICES, spentUsd: round(spentUsd, 4), maxUsd
   }, null, 1));
   console.log(`\nWrote ${outDir}  spent ~$${spentUsd.toFixed(4)}`);
