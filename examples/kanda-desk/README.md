@@ -24,6 +24,7 @@ Status: **five circuit versions, one LLM baseline and two fixed rules recorded l
 | `run.mjs` | Runs seasons against the providers and writes traces, usage, latency and cost to `runs/<name>/` |
 | `compute.mjs` | Compute gates for v2.x. They read stock records only; the shortage projection reuses the rulebook's arithmetic, and v2.1's variant also applies policy clause (f) |
 | `build-page-data.mjs` | Builds `page/data.json` from recorded runs |
+| `explainer/index.html` | 16:9 auto-playing explainer for screen recording, in ten scenes: the players, the problem, the building blocks, the 20-part circuit, one recorded morning flowing through it, the recommendation, the season, and the LLM comparison last. Reads `data.json` next to it or `../page/data.json` |
 | `race/index.html` | Square cartoon race for screen recording: one recorded morning replayed (circuit v2.1 vs GPT-6 Sol vs a person), sped up on a √time scale, with a record mode that hides controls. Reads `data.json` next to it or `../page/data.json` |
 | `page/index.html` | The interactive page: a replay "race" of one recorded morning (circuit vs LLM vs a person, at recorded timings), then the scoreboard, yearly cost and season explorer with each morning's evidence and recorded gate answers |
 

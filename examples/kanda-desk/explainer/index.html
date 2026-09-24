@@ -1,0 +1,592 @@
+<title>Kanda Desk Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { background: #221733; }
+body { margin: 0; color: #F6ECFF; font: 15px/1.5 var(--sans); }
+.page { display: grid; justify-items: center; gap: 14px; padding-block: 20px 36px; padding-inline: 16px; }
+.stage-wrap { width: min(100%, 1280px, calc((100vh - 170px) * 16 / 9)); aspect-ratio: 16 / 9; }
+#stage { width: 100%; height: 100%; display: block; border-radius: 12px; background: #FBF3E4; box-shadow: 0 18px 50px rgba(0,0,0,.35); }
+.controls { width: min(100%, 1280px); display: grid; gap: 10px; }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bar .lbl { font: 600 11.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: #CDB8E0; margin-right: 4px; }
+button { font: 600 13.5px/1 var(--sans); padding: 8px 11px; border-radius: 16px; border: 1.5px solid #5E4A78; background: #33244B; color: #F6ECFF; cursor: pointer; }
+button:hover { border-color: #F2A20C; }
+button[aria-pressed="true"], button.on { background: #F2A20C; border-color: #F2A20C; color: #221733; }
+button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.progress { height: 6px; border-radius: 3px; background: #3A2C52; overflow: hidden; cursor: pointer; }
+.progress span { display: block; height: 100%; width: 0; background: #F2A20C; }
+.note { font-size: 13px; color: #CDB8E0; max-width: 100ch; margin: 0; }
+body.record .controls { display: none; }
+body.record .page { padding: 0; min-height: 100vh; align-content: center; }
+body.record .stage-wrap { width: min(100vw, calc(100vh * 16 / 9)); }
+body.record #stage { border-radius: 0; box-shadow: none; }
+</style>
+
+<div class="page">
+  <div class="stage-wrap">
+    <svg id="stage" viewBox="0 0 1600 900" role="img" aria-label="Animated explainer: a Pune gravy factory's daily onion decision, the players involved, the decision circuit built from Jev questions and code steps, one recorded morning running through it, and the comparison with a large language model."></svg>
+  </div>
+  <div class="controls">
+    <div class="progress" id="progress" title="Seek"><span id="progress-fill"></span></div>
+    <div class="bar" id="scenes" role="group" aria-label="Scenes"><span class="lbl">Scene</span></div>
+    <div class="bar">
+      <span class="lbl">Play</span>
+      <button type="button" id="b-play">❚❚ Pause</button>
+      <button type="button" id="b-prev">◀ Back</button>
+      <button type="button" id="b-next">Next ▶</button>
+      <button type="button" id="b-restart">↺ Restart</button>
+      <button type="button" id="b-loop" aria-pressed="true">Loop</button>
+      <button type="button" id="b-record">Record mode</button>
+    </div>
+    <div class="bar" id="mornings" role="group" aria-label="Morning shown in scenes 6 and 7"><span class="lbl">Morning</span></div>
+    <p class="note" id="note">Loading recorded runs…</p>
+  </div>
+</div>
+
+<script>
+(async () => {
+  // ---------------- basics ----------------
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('stage');
+  const el = (tag, attrs = {}, parent = svg, text) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (text != null) n.textContent = text; parent.appendChild(n); return n; };
+  const G = (parent, attrs = {}) => el('g', attrs, parent);
+  const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+  const ease = x => { x = clamp(x); return 1 - Math.pow(1 - x, 3); };
+  const back = x => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+  const prog = (t, t0, d) => clamp((t - t0) / d);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const C = {
+    bg: '#FBF3E4', ink: '#2A1B3D', ink2: '#5E4B6E', mute: '#8C7B6A', line: '#E4D3B8', card: '#FFFFFF',
+    marigold: '#E8A317', saffron: '#E4572E', indigo: '#2E3A87', leaf: '#2F8F5B', onion: '#B8457E',
+    jev: '#0F7C68', jevSoft: '#D5EFE8', code: '#44506E', codeSoft: '#E3E7F0', llm: '#6A79A0',
+    good: '#1E9E3A', warn: '#E09A00', bad: '#D23B3B'
+  };
+  const FONT = { d: 'font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif', s: 'font-family:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif', m: 'font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace' };
+  function T(parent, x, y, text, { size = 22, weight = 600, fill = C.ink, anchor = 'start', font = 's', opacity } = {}) {
+    const a = { x, y, 'font-size': size, 'font-weight': weight, fill, 'text-anchor': anchor, style: FONT[font] };
+    if (opacity != null) a.opacity = opacity;
+    return el('text', a, parent, text);
+  }
+  function wrapT(parent, x, y, text, maxChars, lineH, opts = {}) {
+    const words = String(text).split(/\s+/); const lines = [''];
+    for (const w of words) { const c = (lines.at(-1) + ' ' + w).trim(); if (c.length > maxChars && lines.at(-1)) lines.push(w); else lines[lines.length - 1] = c; }
+    const t = T(parent, x, y, '', opts);
+    lines.forEach((l, i) => el('tspan', { x, dy: i ? lineH : 0 }, t, l));
+    return t;
+  }
+  const show = (node, p, dy = 0, dx = 0, sc = 1) => { node.setAttribute('opacity', p); node.setAttribute('transform', `translate(${node.__x + (1 - p) * dx} ${node.__y + (1 - p) * dy})${sc !== 1 ? ` scale(${sc})` : ''}`); };
+  const at = (parent, x, y, attrs = {}) => { const g = G(parent, { transform: `translate(${x} ${y})`, ...attrs }); g.__x = x; g.__y = y; return g; };
+
+  // ---------------- data ----------------
+  let D = null;
+  for (const url of ['data.json', '../page/data.json']) { try { const r = await fetch(url); if (r.ok) { D = await r.json(); break; } } catch {} }
+  const note = document.getElementById('note');
+  if (!D) { note.textContent = 'The recorded runs could not be loaded. Reload the page to try again.'; return; }
+  const FX = 88, MANUAL_MIN = 45, RATE = 600;
+  const circuit = D.circuits['v2.1'];
+  const MORNINGS = [
+    { label: 'Rain hits Nashik', key: 'rain_shock-2', i: 4 },
+    { label: 'Strike rumour', key: 'strike_fizzle-1', i: 3 },
+    { label: 'Agent tries to instruct the software', key: 'manipulative_agent-1', i: 5 },
+    { label: 'A quiet morning', key: 'normal-1', i: 2 },
+    { label: 'A morning the circuit got wrong', key: 'rain_shock-1', i: 5 }
+  ];
+  const M = { k: 0 };
+  const morning = () => { const m = MORNINGS[M.k]; return { ...m, jev: D.runs['v2.1'][m.key].mornings[m.i], llm: D.runs.llm[m.key].mornings[m.i], ev: D.evidence[m.key][m.i], date: D.mornings[m.i], scen: m.key.replace(/-\d+$/, '') }; };
+  const dayLabel = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const secs = ms => ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
+  const rs = x => x < 1 ? `₹${x.toFixed(2)}` : x < 100 ? `₹${x.toFixed(1)}` : `₹${Math.round(x).toLocaleString('en-IN')}`;
+  function tally(pid) {
+    const r = { correct: 0, safe: 0, wrong: 0, failed: 0, n: 0, person: 0, usd: 0, ms: [], spend: 0, short: 0 };
+    for (const run of Object.values(D.runs[pid])) { r.spend += run.totals.spendLakh; r.short += run.totals.shortDaysToDiwali; for (const m of run.mornings) { r.n++; r[m.v]++; if (!m.dec || m.dec[2] === 'C' || m.dec[2] === 'D') r.person++; r.usd += m.usd || 0; if (m.ms != null) r.ms.push(m.ms); } }
+    r.ms.sort((a, b) => a - b); r.med = r.ms[r.ms.length >> 1]; r.usdPer = r.usd / r.n; return r;
+  }
+  const TJ = tally('v2.1'), TL = tally('llm');
+
+  // ---------------- icons ----------------
+  function person(p, { shirt = C.marigold, skin = '#A86B45', hair = '#2B1B14', s = 1, tie = false } = {}) {
+    const g = G(p, { transform: `scale(${s})` });
+    el('path', { d: 'M-26 40 Q-28 -2 0 -8 Q28 -2 26 40 Z', fill: shirt }, g);
+    if (tie) el('path', { d: 'M0 -6 L-5 4 L0 26 L5 4 Z', fill: C.saffron }, g);
+    el('circle', { cx: 0, cy: -26, r: 18, fill: skin }, g);
+    el('path', { d: 'M-18 -28 Q-17 -48 1 -46 Q18 -45 18 -28 Q10 -38 -2 -37 Q-12 -37 -18 -28 Z', fill: hair }, g);
+    return g;
+  }
+  const ICON = {
+    factory(p) { el('rect', { x: -70, y: -20, width: 140, height: 70, fill: '#D9C4A2' }, p); el('path', { d: 'M-70 -20 L-47 -44 L-47 -20 L-24 -44 L-24 -20 L-1 -44 L-1 -20 L22 -44 L22 -20 L70 -20 Z', fill: '#C4A77E' }, p); el('rect', { x: 36, y: -70, width: 18, height: 50, fill: '#A98B60' }, p); for (const [cx, cy, r] of [[45, -82, 9], [55, -96, 12], [48, -114, 9]]) el('circle', { cx, cy, r, fill: '#EDE2CF' }, p); el('rect', { x: -14, y: 14, width: 28, height: 36, fill: '#7A5A2E' }, p); el('ellipse', { cx: -42, cy: 20, rx: 16, ry: 8, fill: C.saffron }, p); el('rect', { x: -58, y: 20, width: 32, height: 16, rx: 5, fill: C.saffron }, p); el('ellipse', { cx: 42, cy: 20, rx: 16, ry: 8, fill: C.marigold }, p); el('rect', { x: 26, y: 20, width: 32, height: 16, rx: 5, fill: C.marigold }, p); },
+    mandi(p) { el('path', { d: 'M-46 -10 L0 -40 L46 -10 Z', fill: '#C4A77E' }, p); for (const [x, y] of [[-26, 20], [0, 20], [26, 20], [-13, 0], [13, 0]]) { el('path', { d: `M${x - 13} ${y + 14} Q${x - 16} ${y - 6} ${x - 8} ${y - 12} L${x + 8} ${y - 12} Q${x + 16} ${y - 6} ${x + 13} ${y + 14} Z`, fill: '#B98A55' }, p); } el('ellipse', { cx: 0, cy: -16, rx: 9, ry: 8, fill: C.onion }, p); },
+    agent(p) { person(p, { shirt: '#3A7CA5', s: 0.9 }); const b = G(p, { transform: 'translate(22 -44)' }); el('path', { d: 'M0 0 h40 a8 8 0 0 1 8 8 v16 a8 8 0 0 1 -8 8 h-26 l-10 9 v-9 h-4 a8 8 0 0 1 -8 -8 v-16 a8 8 0 0 1 8 -8 z', fill: '#3BB36B' }, b); for (const x of [12, 22, 32]) el('circle', { cx: x, cy: 16, r: 3.2, fill: '#fff' }, b); },
+    imd(p) { el('path', { d: 'M-40 12 a20 20 0 0 1 8 -36 a26 26 0 0 1 48 -4 a19 19 0 0 1 20 40 z', fill: '#6C8FC7' }, p); for (const x of [-20, 0, 20]) el('path', { d: `M${x} 22 l-6 16`, stroke: C.indigo, 'stroke-width': 5, 'stroke-linecap': 'round' }, p); T(p, 0, 2, 'IMD', { size: 15, weight: 700, fill: '#fff', anchor: 'middle', font: 'm' }); },
+    news(p) { el('rect', { x: -38, y: -32, width: 76, height: 64, rx: 5, fill: '#fff', stroke: '#8A7A66', 'stroke-width': 3 }, p); T(p, 0, -8, 'बातमी', { size: 18, weight: 700, anchor: 'middle', font: 'd' }); for (const y of [4, 14, 22]) el('rect', { x: -28, y, width: 56, height: 4, fill: '#C9BCA6' }, p); },
+    cold(p) { el('rect', { x: -40, y: -34, width: 80, height: 68, rx: 8, fill: '#CFE9F5', stroke: '#4E90B0', 'stroke-width': 3 }, p); for (const a of [0, 60, 120]) el('path', { d: 'M0 -20 L0 20', stroke: '#2E6E8E', 'stroke-width': 4, 'stroke-linecap': 'round', transform: `rotate(${a})` }, p); },
+    flakes(p) { el('rect', { x: -26, y: -30, width: 52, height: 62, rx: 10, fill: '#F7ECD7', stroke: '#B98A55', 'stroke-width': 3 }, p); el('rect', { x: -30, y: -40, width: 60, height: 14, rx: 4, fill: C.saffron }, p); for (let k = 0; k < 12; k++) el('rect', { x: -18 + (k % 4) * 10, y: -10 + Math.floor(k / 4) * 12, width: 7, height: 4, rx: 2, fill: '#D9A45A', transform: `rotate(${k * 37} ${-15 + (k % 4) * 10} ${-8 + Math.floor(k / 4) * 12})` }, p); },
+    customers(p) { el('rect', { x: -44, y: -12, width: 88, height: 50, fill: '#F4E4C8' }, p); for (let k = 0; k < 6; k++) el('path', { d: `M${-44 + k * 14.7} -12 l7.3 -18 l7.3 18 z`, fill: k % 2 ? '#fff' : C.saffron }, p); el('rect', { x: -44, y: -32, width: 88, height: 4, fill: C.saffron }, p); el('rect', { x: -10, y: 8, width: 20, height: 30, fill: '#7A5A2E' }, p); T(p, 0, 2, 'QSR', { size: 13, weight: 700, anchor: 'middle', font: 'm' }); },
+    people(p) { const a = G(p, { transform: 'translate(-24 6)' }); person(a, { shirt: C.marigold, s: 0.85 }); const b = G(p, { transform: 'translate(26 2)' }); person(b, { shirt: '#3B3F58', s: 0.95, tie: true, skin: '#C58A5E' }); }
+  };
+  function iconAt(parent, name, x, y, s = 1) { const g = at(parent, x, y); const inner = G(g, { transform: `scale(${s})` }); ICON[name](inner); return g; }
+
+  // ---------------- circuit layout (shared by scenes 5 and 6) ----------------
+  const COLS = [175, 475, 775, 1075, 1375], GW = 200, GH = 46;
+  const ROUND = ['Read the clues', 'Size the gap', 'Choose', 'Check the rules', 'Who should see it'];
+  const LABEL = { J1: 'Mandi arrivals thin?', J2: 'Price direction?', J3: 'New crop: how late?', J4: 'Mandi really shutting?', J5: 'Agent backed up?', J6: 'Cold-store life left', C1: 'Navratri days ahead', J8: 'Flakes allowed?', J9: 'Stock limit in force?', J10: 'Instructing the software?', J11: 'Customer penalty risk', C2: 'Shortage projection', J13: 'Cost of waiting', J14: 'What to buy?', J15: 'Kitchen plan?', C3: 'Within ₹25 lakh?', J17: 'Approved recipes only?', J18: 'Within stock limits?', J19: 'Penalty orders first?', J20: 'Who should see it?' };
+  const LEVELS = { J2: ['falling', 'flat', 'rising', 'spiking'], J3: ['on time', '~1 week late', '2–3 weeks late', 'after Diwali'], J6: ['< 1 week', '1–2 weeks', '2–3 weeks', '> 3 weeks'], J11: ['none', 'shop delays', 'penalty hit', 'contract risk'], J13: ['cheaper later', 'same', '+10–25%', '+25% or more'] };
+  const CHOICE = { J14: { A: 'buy nothing', B: 'spot lot', C: 'dried flakes', D: 'ask the boss' }, J15: { A: 'keep plan', B: 'no-onion lines', C: 'pause cheap SKUs', D: 'ask plant head' }, J20: { A: 'manager', B: 'manager + warning', C: 'CFO', D: 'a person decides' } };
+  const PLAIN = {
+    purchase: { A: 'Buy nothing today', B: 'Buy the 60 t spot lot at the mandi', C: 'Order 8 t of dried onion flakes from Mahuva', D: 'Ask the purchase head' },
+    production: { A: 'Keep the production plan', B: 'Run no-onion Navratri lines; keep onion for QSR and Diwali', C: 'Pause low-margin products until new crop arrives', D: 'Ask the plant head' },
+    release: { A: 'Sent straight to the purchase manager', B: 'Sent to the manager with a warning', C: 'Held for the CFO to approve', D: 'Handed to a person to decide' }
+  };
+  function gatePos() {
+    const pos = {};
+    [1, 2, 3, 4, 5].forEach((st, c) => {
+      const gs = circuit.gates.filter(g => g.stage === st);
+      const top = st === 1 ? 150 : 470 - gs.length * 29;
+      gs.forEach((g, k) => { pos[g.id] = { x: COLS[c], y: top + k * 58, stage: st }; });
+    });
+    return pos;
+  }
+  function valueText(g, a, comp) {
+    if (g.type === 'compute') {
+      if (!comp) return '';
+      if (g.op === 'festival_window') return comp.festival_days_in_next_7 ? `${comp.festival_days_in_next_7} of next 7 days` : 'none this week';
+      if (g.op.startsWith('supply_projection')) return comp.short_days_if_no_purchase ? `${comp.shortfall_tonnes_if_no_purchase} t short` : 'nothing short';
+      if (g.op === 'spend_check') return comp.cost_lakh ? `₹${comp.cost_lakh} L · ${comp.within_limit ? 'OK' : 'over'}` : 'no spend';
+    }
+    if (a == null) return '';
+    if (g.type === 'noul') return `${Math.round(a * 100)}% yes`;
+    if (g.type === 'score') { const k = a.indexOf(Math.max(...a)); return LEVELS[g.id]?.[k] ?? `level ${k}`; }
+    return CHOICE[g.id]?.[a.c] ?? a.c;
+  }
+  function drawCircuit(root) {
+    const pos = gatePos();
+    const wires = G(root), gates = {}, heads = [], buses = [];
+    [1, 2, 3, 4, 5].forEach((st, c) => {
+      const h = at(root, COLS[c] + GW / 2, 118);
+      T(h, 0, 0, `${st} · ${ROUND[c]}`, { size: 19, weight: 700, anchor: 'middle', font: 'd', fill: C.ink2 });
+      const ms = T(h, 0, 20, '', { size: 13, anchor: 'middle', font: 'm', fill: C.mute });
+      heads.push({ h, ms });
+      if (c > 0) { const b = el('rect', { x: COLS[c] - 58, y: 140, width: 10, height: 660, rx: 5, fill: C.line }, wires); buses.push(b); }
+    });
+    // stubs: gate → next bus, bus → gate
+    const stubs = [];
+    for (const g of circuit.gates) {
+      const p = pos[g.id], c = g.stage - 1;
+      if (c < 4) stubs.push({ st: g.stage, out: true, n: el('line', { x1: p.x + GW, y1: p.y + GH / 2, x2: COLS[c + 1] - 58, y2: p.y + GH / 2, stroke: C.line, 'stroke-width': 3 }, wires) });
+      if (c > 0) stubs.push({ st: g.stage, out: false, n: el('line', { x1: COLS[c] - 48, y1: p.y + GH / 2, x2: p.x, y2: p.y + GH / 2, stroke: C.line, 'stroke-width': 3 }, wires) });
+    }
+    for (const g of circuit.gates) {
+      const p = pos[g.id];
+      const node = at(root, p.x, p.y);
+      const isCode = g.type === 'compute';
+      const box = el('rect', { width: GW, height: GH, rx: isCode ? 6 : 12, fill: isCode ? C.codeSoft : '#fff', stroke: isCode ? C.code : C.jev, 'stroke-width': 2.5, 'stroke-dasharray': isCode ? '6 4' : 'none' }, node);
+      const fill = el('rect', { x: 2, y: GH - 7, width: 0, height: 5, rx: 2, fill: C.jev }, node);
+      const glyph = G(node, { transform: 'translate(18 23)' });
+      if (g.type === 'noul') { el('path', { d: 'M-8 -9 h6 a9 9 0 0 1 0 18 h-6 z', fill: 'none', stroke: C.jev, 'stroke-width': 2.5 }, glyph); }
+      else if (g.type === 'score') { for (let k = 0; k < 4; k++) el('rect', { x: -9 + k * 5, y: 6 - k * 4, width: 3.5, height: 4 + k * 4, fill: C.jev }, glyph); }
+      else if (g.type === 'choice') { el('path', { d: 'M-9 -10 L9 -5 L9 5 L-9 10 Z', fill: 'none', stroke: C.jev, 'stroke-width': 2.5 }, glyph); }
+      else { T(glyph, 0, 7, 'ƒ', { size: 22, weight: 700, anchor: 'middle', fill: C.code, font: 'm' }); }
+      const lab = T(node, 34, 20, LABEL[g.id] || g.id, { size: 14, weight: 600, fill: C.ink });
+      const val = T(node, 34, 37, '', { size: 13, weight: 600, fill: C.jev, font: 'm' });
+      gates[g.id] = { node, box, fill, val, lab, g };
+    }
+    return { pos, gates, heads, stubs, buses };
+  }
+
+  // ---------------- scenes ----------------
+  const scenes = [];
+  const addScene = (name, dur, caps, build) => scenes.push({ name, dur, caps, build });
+
+  // 1 · title
+  addScene('Title', 6, [[0, 'Every morning at 7, a factory in Pune has to make one call about onion.']], root => {
+    const sun = at(root, 1380, 250);
+    for (let k = 0; k < 12; k++) el('rect', { x: -5, y: -150, width: 10, height: 44, rx: 5, fill: '#F2B84B', transform: `rotate(${k * 30})` }, sun);
+    el('circle', { r: 96, fill: '#F2B84B' }, sun); el('circle', { r: 76, fill: '#FFCF6B' }, sun);
+    const fac = iconAt(root, 'factory', 1380, 560, 2.1);
+    const title = at(root, 110, 330);
+    T(title, 0, 0, 'Kanda Desk', { size: 120, weight: 800, font: 'd' });
+    T(title, 4, 70, 'How a decision circuit makes a factory’s', { size: 40, weight: 600, font: 'd', fill: C.ink2 });
+    T(title, 4, 118, 'daily onion call, one small question at a time', { size: 40, weight: 600, font: 'd', fill: C.ink2 });
+    const tag = at(root, 114, 560);
+    el('rect', { width: 470, height: 46, rx: 23, fill: C.ink }, tag);
+    T(tag, 235, 31, 'कांदा = onion · Pune · October 2026', { size: 21, weight: 600, anchor: 'middle', fill: '#FBF3E4', font: 'd' });
+    const brand = at(root, 114, 690);
+    T(brand, 0, 0, 'capabl machines', { size: 30, weight: 800, font: 'd', fill: C.marigold });
+    return t => { show(sun, ease(t / 1.2), -60); show(fac, ease((t - 0.3) / 1), 60); show(title, ease((t - 0.5) / 0.8), 0, -60); show(tag, ease((t - 1.2) / 0.6), 20); show(brand, ease((t - 1.6) / 0.6), 20); sun.firstChild && sun.setAttribute('transform', `translate(${sun.__x} ${sun.__y}) rotate(${t * 6})`); };
+  });
+
+  // 2 · the players
+  const PLAYERS = [
+    ['mandi', 'Lasalgaon mandi', 'Often called Asia’s largest onion market. Posts daily arrivals and prices.', 'L', 0],
+    ['agent', 'Commission agent (adatiya)', 'Sells lots over WhatsApp. Earns when you buy, so he likes urgency.', 'L', 1],
+    ['imd', 'IMD weather alerts', 'Rain warnings for Nashik, where the new crop grows.', 'L', 2],
+    ['news', 'Marathi newspaper', 'Crop reports from Niphad and Yeola talukas.', 'L', 3],
+    ['cold', 'Own cold store', 'Summer onion stored since May. Ageing: sprouting and rot rise every week.', 'L', 4],
+    ['flakes', 'Mahuva dehydrator', 'Dried onion flakes. Keep 12 months. Approved for 2 of 5 gravies.', 'R', 0],
+    ['customers', 'Customers', 'QSR chains with a ₹50,000-a-day penalty, plus shops and dealers.', 'R', 1],
+    ['people', 'Purchase manager and CFO', 'The manager approves up to ₹25 lakh. Above that, the CFO.', 'R', 2]
+  ];
+  addScene('The players', 14, [[0, 'Meet the players. Five of them send clues every morning.'], [6.2, 'Three more shape what the factory is allowed to do.'], [10.5, 'All of them meet in one decision: what to buy, what to cook, and who should see it.']], root => {
+    const fac = iconAt(root, 'factory', 800, 450, 1.35);
+    const fl = at(root, 800, 545);
+    T(fl, 0, 0, 'Pune gravy factory', { size: 26, weight: 700, anchor: 'middle', font: 'd' });
+    T(fl, 0, 30, '6 tonnes of onion every production day', { size: 18, anchor: 'middle', fill: C.ink2 });
+    const lines = G(root), items = [];
+    for (const [ic, name, desc, side, k] of PLAYERS) {
+      const x = side === 'L' ? 110 : 1490, y = side === 'L' ? 150 + k * 142 : 210 + k * 190;
+      const ln = el('path', { d: side === 'L' ? `M${x + 380} ${y} C ${620} ${y}, ${640} 450, ${720} 450` : `M${x - 380} ${y} C ${980} ${y}, ${960} 450, ${880} 450`, fill: 'none', stroke: side === 'L' ? C.jev : C.marigold, 'stroke-width': 3, 'stroke-dasharray': '8 8', opacity: 0 }, lines);
+      const g = at(root, x, y);
+      const ig = G(g, { transform: `scale(${ic === 'people' ? 0.8 : 0.72})` }); ICON[ic](ig);
+      const tx = side === 'L' ? 62 : -62, anch = side === 'L' ? 'start' : 'end';
+      T(g, tx, -8, name, { size: 21, weight: 700, font: 'd', anchor: anch });
+      wrapT(g, tx, 16, desc, 40, 20, { size: 15.5, fill: C.ink2, anchor: anch });
+      items.push({ g, ln, side, k });
+    }
+    return t => {
+      show(fac, ease(t / 0.8), 30); show(fl, ease((t - 0.3) / 0.6), 20);
+      items.forEach(({ g, ln, side, k }) => {
+        const t0 = side === 'L' ? 0.6 + k * 1.0 : 6.4 + k * 1.2;
+        show(g, ease((t - t0) / 0.6), 0, side === 'L' ? -40 : 40);
+        ln.setAttribute('opacity', ease((t - t0 - 0.3) / 0.6) * 0.9);
+        ln.setAttribute('stroke-dashoffset', -t * 30);
+      });
+    };
+  });
+
+  // 3 · the problem
+  addScene('The problem', 15, [[0, 'The squeeze: summer onion in store is running out, and the new crop arrives from mid-October.'], [4.5, 'Rain can push the new crop back by weeks. Navratri cuts onion use; Diwali brings the peak.'], [9.2, 'So every morning the factory makes three calls, while the clues argue with each other.']], root => {
+    const tl = at(root, 110, 170);
+    const W = 1380, d0 = Date.UTC(2026, 9, 5), d1 = Date.UTC(2026, 10, 9);
+    const X = iso => ((Date.parse(iso + 'T00:00:00Z') - d0) / (d1 - d0)) * W;
+    el('line', { x1: 0, y1: 120, x2: W, y2: 120, stroke: C.ink2, 'stroke-width': 3 }, tl);
+    for (const [iso, lab] of [['2026-10-05', '5 Oct'], ['2026-10-15', '15 Oct'], ['2026-10-25', '25 Oct'], ['2026-11-01', '1 Nov'], ['2026-11-08', '8 Nov']]) { el('line', { x1: X(iso), y1: 112, x2: X(iso), y2: 128, stroke: C.ink2, 'stroke-width': 3 }, tl); T(tl, X(iso), 154, lab, { size: 16, anchor: 'middle', font: 'm', fill: C.ink2 }); }
+    const store = G(tl);
+    const grad = el('linearGradient', { id: 'ageing', x1: 0, x2: 1 }, el('defs', {}, store));
+    el('stop', { offset: 0, 'stop-color': '#C98F4E' }, grad); el('stop', { offset: 1, 'stop-color': '#7A5A2E', 'stop-opacity': .25 }, grad);
+    const storeBar = el('rect', { x: 0, y: 20, width: 0, height: 40, rx: 8, fill: 'url(#ageing)' }, store);
+    T(store, 14, 47, 'Stored summer onion · ageing', { size: 18, weight: 600, fill: '#fff' });
+    const crop = G(tl);
+    const cropX = el('line', { x1: X('2026-10-15'), y1: 0, x2: X('2026-10-15'), y2: 120, stroke: C.leaf, 'stroke-width': 4 }, crop);
+    const cropT = T(crop, X('2026-10-15') + 10, 14, 'New crop expected', { size: 18, weight: 700, fill: C.leaf, font: 'd' });
+    const gap = el('rect', { x: X('2026-10-20'), y: 66, width: 0, height: 40, rx: 8, fill: C.bad, opacity: .18 }, tl);
+    const gapT = T(tl, X('2026-10-20') + 10, 92, 'Gap?', { size: 20, weight: 800, fill: C.bad, font: 'd', opacity: 0 });
+    const nav = G(tl, { opacity: 0 });
+    el('rect', { x: X('2026-10-11'), y: 170, width: X('2026-10-19') - X('2026-10-11'), height: 34, rx: 8, fill: C.onion, opacity: .85 }, nav);
+    T(nav, (X('2026-10-11') + X('2026-10-19')) / 2, 193, 'Navratri · onion use −40%', { size: 16, weight: 600, anchor: 'middle', fill: '#fff' });
+    const diw = G(tl, { opacity: 0 });
+    el('rect', { x: X('2026-10-25'), y: 170, width: X('2026-11-08') - X('2026-10-25'), height: 34, rx: 8, fill: C.marigold }, diw);
+    T(diw, (X('2026-10-25') + X('2026-11-08')) / 2, 193, 'Diwali orders peak · 8 Nov', { size: 16, weight: 600, anchor: 'middle', fill: C.ink });
+    const rain = iconAt(tl, 'imd', X('2026-10-09'), -20, 0.55);
+    // three calls
+    const calls = [['What to buy?', ['Nothing', 'Spot lot at the mandi', 'Dried flakes from Mahuva', 'Ask the boss']], ['What to cook?', ['Keep the plan', 'No-onion Navratri lines', 'Pause cheap products', 'Ask the plant head']], ['Who should see it?', ['The manager', 'Manager, with a warning', 'The CFO (over ₹25 lakh)', 'A person decides']]];
+    const cards = calls.map(([h, opts], c) => {
+      const g = at(root, 110 + c * 470, 470);
+      el('rect', { width: 440, height: 250, rx: 18, fill: '#fff', stroke: C.line, 'stroke-width': 2 }, g);
+      T(g, 24, 48, h, { size: 28, weight: 800, font: 'd' });
+      opts.forEach((o, k) => { el('circle', { cx: 34, cy: 88 + k * 40, r: 8, fill: 'none', stroke: C.jev, 'stroke-width': 3 }, g); T(g, 54, 95 + k * 40, o, { size: 19, fill: C.ink2 }); });
+      return g;
+    });
+    const traps = at(root, 110, 770);
+    T(traps, 0, 0, 'Traps:', { size: 20, weight: 700, font: 'd', fill: C.bad });
+    T(traps, 80, 0, 'a pushy agent · strike rumours · rain · a message that tries to instruct the software · ~45 minutes of reading by hand', { size: 19, fill: C.ink2 });
+    return t => {
+      show(tl, ease(t / 0.5));
+      storeBar.setAttribute('width', ease((t - 0.3) / 1.6) * X('2026-10-26'));
+      const slide = ease((t - 5) / 2);
+      const cx = X('2026-10-15') + slide * (X('2026-11-01') - X('2026-10-15'));
+      cropX.setAttribute('x1', cx); cropX.setAttribute('x2', cx); cropT.setAttribute('x', cx + 10);
+      cropT.textContent = slide > 0.05 ? 'New crop · delayed by rain' : 'New crop expected';
+      show(rain, ease((t - 4.5) / 0.5), -30);
+      gap.setAttribute('width', Math.max(0, ease((t - 6.5) / 1) * (cx - X('2026-10-20'))));
+      gapT.setAttribute('opacity', ease((t - 7) / 0.6));
+      nav.setAttribute('opacity', ease((t - 5.8) / 0.6)); diw.setAttribute('opacity', ease((t - 6.4) / 0.6));
+      cards.forEach((g, c) => show(g, ease((t - 9.4 - c * 0.45) / 0.6), 40));
+      show(traps, ease((t - 11.6) / 0.6), 20);
+    };
+  });
+
+  // 4 · building blocks
+  addScene('Building blocks', 9, [[0, 'The circuit is built from small parts. Jev answers one narrow question in a fraction of a second, with probabilities.'], [5, 'Code does the arithmetic and the hard limits, where language models are weak.']], root => {
+    const tiles = [
+      ['noul', 'Yes / no', '“Is the agent’s claim backed by other sources?”', g => { el('rect', { x: 0, y: 0, width: 300, height: 16, rx: 8, fill: '#EEE3CF' }, g); const f = el('rect', { x: 0, y: 0, width: 0, height: 16, rx: 8, fill: C.jev }, g); const v = T(g, 310, 14, '', { size: 18, weight: 700, font: 'm', fill: C.jev }); return p => { f.setAttribute('width', 300 * 0.11 * p); v.textContent = `${Math.round(11 * p)}% yes`; }; }],
+      ['score', 'Levels', '“How late is the new crop?”', g => { const bars = ['on time', '~1 wk', '2–3 wks', 'after Diwali'].map((l, k) => { const r = el('rect', { x: k * 90, y: 0, width: 80, height: 18, rx: 6, fill: '#EEE3CF' }, g); T(g, k * 90 + 40, 42, l, { size: 14, anchor: 'middle', fill: C.ink2 }); return r; }); return p => bars.forEach((r, k) => r.setAttribute('fill', k === 2 && p > 0.6 ? C.jev : '#EEE3CF')); }],
+      ['choice', 'Pick one', '“What should we buy today?”', g => { const o = ['nothing', 'spot lot', 'flakes', 'ask boss'].map((l, k) => { const r = el('rect', { x: k * 90, y: 0, width: 80, height: 30, rx: 15, fill: '#fff', stroke: C.jev, 'stroke-width': 2 }, g); const tx = T(g, k * 90 + 40, 20, l, { size: 14, anchor: 'middle', fill: C.jev, weight: 600 }); return [r, tx]; }); return p => o.forEach(([r, tx], k) => { const on = k === 2 && p > 0.6; r.setAttribute('fill', on ? C.jev : '#fff'); tx.setAttribute('fill', on ? '#fff' : C.jev); }); }],
+      ['code', 'Code step', '“How many tonnes short before the new crop?”', g => { const v = T(g, 0, 22, '', { size: 26, weight: 700, font: 'm', fill: C.code }); return p => { v.textContent = `${Math.round(30 * p)} t short · flakes fix 15 t`; }; }]
+    ];
+    const els = tiles.map(([kind, name, q, make], k) => {
+      const g = at(root, 110 + (k % 2) * 700, 150 + Math.floor(k / 2) * 300);
+      const isCode = kind === 'code';
+      el('rect', { width: 660, height: 250, rx: 20, fill: isCode ? C.codeSoft : '#fff', stroke: isCode ? C.code : C.jev, 'stroke-width': 3, 'stroke-dasharray': isCode ? '10 6' : 'none' }, g);
+      T(g, 30, 54, name, { size: 34, weight: 800, font: 'd', fill: isCode ? C.code : C.jev });
+      T(g, 640, 50, isCode ? 'ordinary code' : 'Jev question', { size: 16, anchor: 'end', font: 'm', fill: C.mute });
+      T(g, 30, 100, q, { size: 22, fill: C.ink });
+      const anim = make(G(g, { transform: 'translate(30 150)' }));
+      return { g, anim };
+    });
+    return t => els.forEach(({ g, anim }, k) => { const t0 = k < 3 ? k * 0.9 : 5; show(g, ease((t - t0) / 0.6), 30); anim(ease((t - t0 - 0.6) / 1.2)); });
+  });
+
+  // 5 · circuit design
+  addScene('The circuit', 14, [[0, 'Twenty parts, wired in five rounds like a processor. Parts in the same round work at the same time.'], [4.2, 'Round 1 reads the clues: eleven questions at once. Round 2 sizes the gap in code.'], [8.4, 'Round 3 chooses. Round 4 checks the rules. Round 5 decides who should see it.']], root => {
+    const c = drawCircuit(root);
+    const legend = at(root, 175, 845);
+    const items = [['noul', 'yes / no'], ['score', 'levels'], ['choice', 'pick one'], ['code', 'code step']];
+    items.forEach(([k, l], i) => { const g = G(legend, { transform: `translate(${i * 190} 0)` }); el('rect', { x: 0, y: -18, width: 28, height: 24, rx: k === 'code' ? 4 : 8, fill: k === 'code' ? C.codeSoft : '#fff', stroke: k === 'code' ? C.code : C.jev, 'stroke-width': 2, 'stroke-dasharray': k === 'code' ? '4 3' : 'none' }, g); T(g, 38, 0, l, { size: 17, fill: C.ink2 }); });
+    return t => {
+      c.heads.forEach(({ h }, k) => show(h, ease((t - k * 0.25) / 0.5), -20));
+      c.buses.forEach((b, k) => b.setAttribute('opacity', ease((t - 0.6 - k * 0.25) / 0.5)));
+      for (const [id, x] of Object.entries(c.gates)) { const st = x.g.stage; const idx = circuit.gates.filter(g => g.stage === st).indexOf(x.g); show(x.node, ease((t - 1 - (st - 1) * 0.9 - idx * 0.12) / 0.4), 0, -20); }
+      c.stubs.forEach(s => { const p = ease((t - 1.6 - (s.st - 1) * 0.9) / 0.5); s.n.setAttribute('stroke', p >= 1 ? C.jev : C.line); s.n.setAttribute('opacity', p); });
+      show(legend, ease((t - 5) / 0.6), 20);
+    };
+  });
+
+  // 6 · one recorded morning
+  addScene('One real morning', 22, null, root => {
+    const m = morning();
+    const stageMs = m.jev.stageMs || [m.jev.ms];
+    const ends = stageMs.reduce((a, x) => (a.push((a.at(-1) || 0) + x), a), []);
+    // phase A: the five messages
+    const msgs = [['mandi', 'Mandi report', m.ev.apmc.lasalgaon_report], ['agent', 'Agent on WhatsApp', (m.ev.agent.whatsapp.match(/"([^"]+)"/) || [, m.ev.agent.whatsapp])[1]], ['imd', 'Weather alert', m.ev.imd.nashik_alert], ['news', 'Local news', m.ev.news.regional], ['cold', 'Cold store', m.jev.cold]];
+    const trim = s => { s = String(s).replace(/^[^:]{0,80}\(translated\):\s*/, '').replace(/^[^:"]{0,70}:\s*/, ''); return s.length > 150 ? s.slice(0, 148).trimEnd() + '…' : s; };
+    const head = at(root, 110, 70);
+    T(head, 0, 0, `${dayLabel(m.date)}, 7:00 · ${D.scenarios[m.scen].label}`, { size: 30, weight: 800, font: 'd' });
+    const clock = T(root, 1490, 70, '', { size: 30, weight: 600, anchor: 'end', font: 'm', fill: C.jev });
+    const cards = msgs.map(([ic, name, text], k) => {
+      const g = at(root, 110 + (k % 3) * 470, 130 + Math.floor(k / 3) * 330);
+      el('rect', { width: 440, height: 300, rx: 16, fill: '#fff', stroke: C.line, 'stroke-width': 2 }, g);
+      const ig = G(g, { transform: 'translate(52 58) scale(0.62)' }); ICON[ic](ig);
+      T(g, 100, 64, name, { size: 24, weight: 700, font: 'd' });
+      wrapT(g, 26, 124, trim(text), 38, 27, { size: 19, fill: C.ink2 });
+      return g;
+    });
+    // phase B: circuit
+    const circ = G(root, { opacity: 0 });
+    const c = drawCircuit(circ);
+    const side = G(circ);
+    const sideIcons = msgs.map(([ic], k) => { const g = at(side, 70, 190 + k * 128); const ig = G(g, { transform: 'scale(0.5)' }); ICON[ic](ig); el('line', { x1: 34, y1: 0, x2: 96, y2: 0, stroke: C.jev, 'stroke-width': 3, 'stroke-dasharray': '6 6' }, g); return g; });
+    const dots = G(circ);
+    const call = at(root, 1060, 610, { opacity: 0 });
+    el('rect', { width: 470, height: 170, rx: 16, fill: C.ink }, call);
+    const callT = G(call);
+    const callouts = [];
+    const a = m.jev.ans || {}, comp = m.jev.comp || {};
+    const pct = x => typeof x === 'number' ? `${Math.round(x * 100)}%` : '–';
+    callouts.push([`Round 1 · 11 questions at once · ${secs(stageMs[0])}`, [`New crop: ${valueText(circuit.gates.find(g => g.id === 'J3'), a.J3)}`, `Agent backed up by others? ${pct(a.J5)} yes`, `Anyone instructing the software? ${pct(a.J10)} yes`]]);
+    callouts.push([`Round 2 · code does the maths · ${secs(stageMs[1])}`, [comp.C2 ? (comp.C2.short_days_if_no_purchase ? `${comp.C2.shortfall_tonnes_if_no_purchase} t short before the new crop` : 'Nothing short before the new crop') : 'No projection', comp.C2 && comp.C2.short_days_if_no_purchase ? `Flakes remove ${comp.C2.shortfall_removed_by_flakes_today_t} t · spot lot ${comp.C2.shortfall_removed_by_spot_lot_today_t} t` : 'No purchase needed', `Waiting costs: ${valueText(circuit.gates.find(g => g.id === 'J13'), a.J13)}`]]);
+    callouts.push([`Round 3 · choose · ${secs(stageMs[2])}`, [`Buy: ${a.J14 ? CHOICE.J14[a.J14.c] : '–'} (${a.J14 ? Math.round(a.J14.p['ABCD'.indexOf(a.J14.c)] * 100) : 0}%)`, `Kitchen: ${a.J15 ? CHOICE.J15[a.J15.c] : '–'}`, '']]);
+    callouts.push([`Round 4 · check the rules · ${secs(stageMs[3])}`, [comp.C3 ? comp.C3.summary.replace("the purchase manager's ", '') : '', `Approved recipes only: ${pct(a.J17)} yes`, `Penalty orders first: ${pct(a.J19)} yes`]]);
+    callouts.push([`Round 5 · who should see it · ${secs(stageMs[4])}`, [`→ ${a.J20 ? CHOICE.J20[a.J20.c] : '–'}`, `Total: ${secs(m.jev.ms)} for ${rs((m.jev.usd || 0) * FX)}`, '']]);
+    const cT = T(callT, 26, 44, '', { size: 21, weight: 700, font: 'd', fill: '#FFD27A' });
+    const cL = [0, 1, 2].map(k => T(callT, 26, 84 + k * 30, '', { size: 18, fill: '#FBF3E4' }));
+    const SLOW = 3.0;                                  // seconds of animation per round
+    const B0 = 5.2;                                    // phase B start
+    const caps = [[0, `${dayLabel(m.date)}. Five messages arrive before the factory opens.`], [B0, 'The circuit reads them. Each round finishes before the next starts. Slowed down here; recorded times shown.']];
+    return Object.assign(t => {
+      show(head, ease(t / 0.5), -20);
+      cards.forEach((g, k) => { const pin = ease((t - 0.3 - k * 0.35) / 0.5), out = ease((t - B0 + 0.4) / 0.5); show(g, pin * (1 - out), 30); });
+      const pb = ease((t - B0) / 0.6);
+      circ.setAttribute('opacity', pb);
+      sideIcons.forEach((g, k) => show(g, ease((t - B0 - k * 0.1) / 0.4), 0, -30));
+      const tr = t - B0 - 0.8;
+      const round = Math.floor(tr / SLOW), within = (tr % SLOW) / SLOW;
+      const recNow = tr < 0 ? 0 : round >= 5 ? m.jev.ms : (round > 0 ? ends[round - 1] : 0) + within * stageMs[round];
+      clock.textContent = t < B0 ? '' : `recorded clock ${secs(recNow)}`;
+      dots.replaceChildren();
+      for (const [id, x] of Object.entries(c.gates)) {
+        const st = x.g.stage - 1;
+        const on = tr >= 0 && (round > st || (round === st && within > 0.25 + 0.5 * (circuit.gates.filter(g => g.stage === x.g.stage).indexOf(x.g) / 12)));
+        x.box.setAttribute('stroke-width', round === st ? 4 : 2.5);
+        x.val.textContent = on ? valueText(x.g, a[id], comp[id]) : '';
+        const fillP = on ? (x.g.type === 'noul' && typeof a[id] === 'number' ? a[id] : 1) : 0;
+        x.fill.setAttribute('width', (GW - 4) * fillP);
+        x.fill.setAttribute('fill', x.g.type === 'compute' ? C.code : C.jev);
+        x.node.setAttribute('opacity', tr < 0 ? 0.55 : round === st || round > st ? 1 : 0.45);
+      }
+      if (tr >= 0 && round < 5) {
+        for (const s of c.stubs) if ((s.out && s.st - 1 === round) || (!s.out && s.st - 1 === round + 1 && within > 0.7)) {
+          const x1 = +s.n.getAttribute('x1'), x2 = +s.n.getAttribute('x2'), y = +s.n.getAttribute('y1');
+          const f = s.out ? clamp((within - 0.5) * 2) : clamp((within - 0.7) / 0.3);
+          if (f > 0) el('circle', { cx: x1 + (x2 - x1) * f, cy: y, r: 6, fill: C.marigold }, dots);
+        }
+        if (round === 0) for (let k = 0; k < 5; k++) el('circle', { cx: 104 + 62 * clamp(within * 2), cy: 190 + k * 128, r: 6, fill: C.marigold }, dots);
+      }
+      const ci = clamp(round, 0, 4);
+      call.setAttribute('opacity', tr >= 0 ? ease((within + (round >= 5 ? 1 : 0)) * 3) : 0);
+      if (tr >= 0) { const [h, ls] = callouts[round >= 5 ? 4 : ci]; cT.textContent = h; ls.forEach((l, k) => { cL[k].textContent = l; }); }
+    }, { caps });
+  });
+
+  // 7 · the recommendation
+  addScene('The recommendation', 9, null, root => {
+    const m = morning();
+    const card = at(root, 250, 120);
+    el('rect', { width: 1100, height: 560, rx: 24, fill: '#fff', stroke: C.jev, 'stroke-width': 4 }, card);
+    el('rect', { width: 1100, height: 80, rx: 24, fill: C.jev }, card); el('rect', { y: 50, width: 1100, height: 30, fill: C.jev }, card);
+    T(card, 40, 52, `To the purchase manager · ${dayLabel(m.date)}, 7:00`, { size: 30, weight: 800, font: 'd', fill: '#fff' });
+    const [p, pr, r] = m.jev.dec || '---';
+    const rows = [['Buy', PLAIN.purchase[p] || 'No decision'], ['Kitchen', PLAIN.production[pr] || ''], ['Route', PLAIN.release[r] || '']];
+    const rowEls = rows.map(([k, v], i) => { const g = at(card, 40, 160 + i * 90); T(g, 0, 0, k, { size: 22, weight: 700, font: 'm', fill: C.mute }); wrapT(g, 170, 0, v, 58, 34, { size: 30, weight: 600 }); return g; });
+    const warn = [];
+    if (r === 'B') warn.push('Warning: the agent’s claims are not backed by the mandi, weather or news reports.');
+    if (r === 'D') warn.push('Handed over because a message may be trying to steer the decision, or evidence conflicts.');
+    const wEl = at(card, 40, 440);
+    if (warn.length) wrapT(wEl, 0, 0, `⚠ ${warn[0]}`, 80, 30, { size: 22, fill: '#9A5B00' });
+    const v = m.jev.v, vc = { correct: C.good, safe: C.warn, wrong: C.bad, failed: '#888' }[v];
+    const badge = at(root, 1280, 150);
+    el('circle', { r: 62, fill: vc, stroke: '#fff', 'stroke-width': 6 }, badge);
+    T(badge, 0, 22, { correct: '✓', safe: '!', wrong: '✕', failed: '–' }[v], { size: 64, weight: 800, anchor: 'middle', fill: '#fff', font: 'd' });
+    const perm = m.jev.perm ? `Rulebook allowed: buy ${m.jev.perm.purchase.map(x => CHOICE.J14[x]).join(' or ')} · route ${m.jev.perm.release.map(x => CHOICE.J20[x]).join(' or ')}` : '';
+    const foot = at(root, 250, 740);
+    T(foot, 0, 0, `Decided in ${secs(m.jev.ms)} for ${rs((m.jev.usd || 0) * FX)} · verdict: ${v === 'safe' ? 'safe but over-cautious' : v}`, { size: 24, weight: 700, font: 'd' });
+    T(foot, 0, 34, perm, { size: 18, fill: C.ink2 });
+    const caps = [[0, 'The result is a recommendation, not an order. A person still approves it.'], [4.5, 'It is graded against a rulebook written before any run.']];
+    return Object.assign(t => { show(card, ease(t / 0.6), 40); rowEls.forEach((g, i) => show(g, ease((t - 0.6 - i * 0.4) / 0.5), 0, -30)); show(wEl, ease((t - 2) / 0.5)); show(badge, back((t - 3.2) / 0.5), 0, 0, 0.4 + 0.6 * ease((t - 3.2) / 0.5)); show(foot, ease((t - 4.4) / 0.5), 20); }, { caps });
+  });
+
+  // 8 · the season
+  function drawGrid(parent, pid, x, y, cell, labels) {
+    const g = at(parent, x, y);
+    const keys = []; for (const s of Object.keys(D.scenarios)) for (const n of D.seeds) keys.push(`${s}-${n}`);
+    const dots = [];
+    keys.forEach((key, r) => {
+      if (labels && r % 3 === 0) T(g, -16, r * cell + cell * 1.9, D.scenarios[key.replace(/-\d+$/, '')].label, { size: 17, anchor: 'end', fill: C.ink2, weight: 600 });
+      D.runs[pid][key].mornings.forEach((m, c) => {
+        const col = { correct: C.good, safe: C.warn, wrong: C.bad, failed: '#999' }[m.v];
+        dots.push({ n: el('circle', { cx: c * cell + cell / 2, cy: r * cell + cell / 2 + (Math.floor(r / 3) * 8), r: 0, fill: col }, g), c, r });
+      });
+    });
+    return { g, dots };
+  }
+  addScene('The season', 10, [[0, 'Now all 192 recorded mornings: four scenarios, three seeds, sixteen mornings each.'], [5, `The circuit decided ${Math.round((1 - TJ.person / TJ.n) * 100)}% of mornings itself. ${TJ.wrong} were wrong.`]], root => {
+    const grid = drawGrid(root, 'v2.1', 330, 150, 36, true);
+    const head = at(root, 330, 118); T(head, 0, 0, 'Decision circuit · each dot is one morning', { size: 26, weight: 800, font: 'd' });
+    const stats = at(root, 1000, 200);
+    const rows = [[C.good, '✓', TJ.correct, 'right'], [C.warn, '!', TJ.safe, 'safe but over-cautious'], [C.bad, '✕', TJ.wrong, 'wrong']];
+    const sEls = rows.map(([col, ic, n, l], i) => { const g = at(stats, 0, i * 100); el('circle', { cx: 26, cy: -12, r: 26, fill: col }, g); T(g, 26, 0, ic, { size: 30, weight: 800, anchor: 'middle', fill: '#fff', font: 'd' }); const num = T(g, 72, 4, '0', { size: 52, weight: 800, font: 'd' }); T(g, 180, 0, l, { size: 22, fill: C.ink2 }); return { g, num, n }; });
+    const extra = at(stats, 0, 330);
+    T(extra, 0, 0, `${Math.round(TJ.person / TJ.n * 100)}% handed to a person`, { size: 24, weight: 700, font: 'd' });
+    T(extra, 0, 36, `${rs(TJ.usdPer * FX)} and ${secs(TJ.med)} per morning`, { size: 22, fill: C.ink2 });
+    return t => {
+      show(head, ease(t / 0.5), -20);
+      grid.dots.forEach(({ n, c, r }) => n.setAttribute('r', 13 * back((t - 0.4 - c * 0.18 - r * 0.02) / 0.4)));
+      sEls.forEach(({ g, num, n }, i) => { show(g, ease((t - 3 - i * 0.3) / 0.5), 0, 30); num.textContent = Math.round(n * ease((t - 3 - i * 0.3) / 1.2)); });
+      show(extra, ease((t - 5) / 0.6), 20);
+    };
+  });
+
+  // 9 · and the LLM
+  addScene('And a big LLM?', 13, [[0, 'Same 192 mornings, same messages, one prompt to a large language model (GPT-6 Sol).'], [5.5, `It made the fewest outright mistakes (${TL.wrong}), but handed ${Math.round(TL.person / TL.n * 100)}% of mornings back to a person.`], [9.5, `And it took about ${Math.round(TL.med / TJ.med)}× longer and cost about ${Math.round(TL.usdPer / TJ.usdPer)}× more per morning.`]], root => {
+    const gj = drawGrid(root, 'v2.1', 130, 170, 22, false), gl = drawGrid(root, 'llm', 530, 170, 22, false);
+    const hj = at(root, 130, 150); T(hj, 0, 0, 'Decision circuit', { size: 24, weight: 800, font: 'd', fill: C.jev });
+    const hl = at(root, 530, 150); T(hl, 0, 0, 'Large LLM', { size: 24, weight: 800, font: 'd', fill: C.llm });
+    const tab = at(root, 950, 170);
+    const rowsT = [['Right', TJ.correct, TL.correct, ''], ['Wrong', TJ.wrong, TL.wrong, ''], ['Handed to a person', `${Math.round(TJ.person / TJ.n * 100)}%`, `${Math.round(TL.person / TL.n * 100)}%`, ''], ['Time per morning', secs(TJ.med), secs(TL.med), ''], ['Cost per morning', rs(TJ.usdPer * FX), rs(TL.usdPer * FX), ''], ['A year of mornings (300)', rs(TJ.usdPer * FX * 300), rs(TL.usdPer * FX * 300), 'API cost only']];
+    T(tab, 300, -10, 'circuit', { size: 18, weight: 700, anchor: 'end', font: 'm', fill: C.jev }); T(tab, 470, -10, 'LLM', { size: 18, weight: 700, anchor: 'end', font: 'm', fill: C.llm });
+    const rEls = rowsT.map(([l, a, b], i) => { const g = at(tab, 0, 40 + i * 62); T(g, 0, 0, l, { size: 20, fill: C.ink2 }); T(g, 300, 0, String(a), { size: 24, weight: 800, anchor: 'end', font: 'd', fill: C.jev }); const lb = T(g, 470, 0, String(b), { size: 24, weight: 800, anchor: 'end', font: 'd', fill: C.llm }); el('line', { x1: 0, y1: 20, x2: 480, y2: 20, stroke: C.line }, g); return { g, lb }; });
+    const legend = at(root, 130, 510);
+    [[C.good, '✓ right'], [C.warn, '! over-cautious'], [C.bad, '✕ wrong']].forEach(([c, l], i) => { const g = G(legend, { transform: `translate(${i * 190} 0)` }); el('circle', { cx: 10, cy: -6, r: 10, fill: c }, g); T(g, 28, 0, l, { size: 18, fill: C.ink2 }); });
+    const verdict = at(root, 130, 640);
+    wrapT(verdict, 0, 0, 'The circuit acts on its own and asks for help only on the few mornings that need it. The large model is careful, but leaves the manager doing almost every morning by hand.', 78, 36, { size: 26, weight: 600, font: 'd' });
+    return t => {
+      show(hj, ease(t / 0.4)); gj.dots.forEach(({ n }) => n.setAttribute('r', 8));
+      show(hl, ease((t - 0.8) / 0.4));
+      gl.dots.forEach(({ n, c, r }) => n.setAttribute('r', 8 * back((t - 1 - c * 0.12 - r * 0.02) / 0.35)));
+      rEls.forEach(({ g }, i) => show(g, ease((t - 3 - i * 0.45) / 0.5), 0, 30));
+      show(legend, ease((t - 2) / 0.5));
+      show(verdict, ease((t - 10.2) / 0.6), 20);
+    };
+  });
+
+  // 10 · end
+  addScene('End', 7, [[0, 'Decision circuits: small AI questions, code for the maths, and a person for the edge cases.']], root => {
+    const a = at(root, 800, 330);
+    T(a, 0, 0, 'Small questions. Wired like a processor.', { size: 58, weight: 800, anchor: 'middle', font: 'd' });
+    T(a, 0, 64, 'Code for the maths. A person for the edge cases.', { size: 34, weight: 600, anchor: 'middle', font: 'd', fill: C.ink2 });
+    const b = at(root, 800, 520);
+    T(b, 0, 0, 'capabl machines', { size: 64, weight: 800, anchor: 'middle', font: 'd', fill: C.marigold });
+    const f = at(root, 800, 690);
+    T(f, 0, 0, `Recorded 24 Sep 2026: circuit v${circuit.version} on Jev 1.13 (TypeSafe) and openai/gpt-6-sol, 192 synthetic mornings each.`, { size: 17, anchor: 'middle', fill: C.mute, font: 'm' });
+    T(f, 0, 28, `Graded by a rulebook written before the runs. ₹ at ${FX} per US$. The 45-minute manual estimate is an assumption.`, { size: 17, anchor: 'middle', fill: C.mute, font: 'm' });
+    return t => { show(a, ease(t / 0.7), 30); show(b, back((t - 1) / 0.6), 0, 0, 0.6 + 0.4 * ease((t - 1) / 0.6)); show(f, ease((t - 2) / 0.6)); };
+  });
+
+  // ---------------- engine ----------------
+  const layer = G(svg);
+  const capBar = G(svg);
+  el('rect', { x: 0, y: 830, width: 1600, height: 70, fill: 'rgba(42,27,61,.92)' }, capBar);
+  const capText = T(capBar, 800, 874, '', { size: 25, weight: 600, anchor: 'middle', fill: '#FBF3E4', font: 'd' });
+  const pbar = el('rect', { x: 0, y: 826, width: 0, height: 4, fill: C.marigold }, svg);
+  const total = () => scenes.reduce((a, s) => a + s.dur, 0);
+  const P = { i: 0, t: 0, playing: !reduce, loop: true, update: null, caps: null, last: 0 };
+  function enter(i) {
+    P.i = (i + scenes.length) % scenes.length; P.t = 0;
+    layer.replaceChildren();
+    const s = scenes[P.i];
+    const u = s.build(layer);
+    P.update = u; P.caps = u.caps || s.caps || [];
+    syncControls();
+  }
+  function render() {
+    const s = scenes[P.i];
+    P.update(reduce && !P.playing ? s.dur : P.t);
+    let cap = ''; for (const [t0, c] of P.caps) if (P.t >= t0 || (reduce && !P.playing)) cap = c;
+    if (capText.textContent !== cap) capText.textContent = cap;
+    const before = scenes.slice(0, P.i).reduce((a, x) => a + x.dur, 0);
+    pbar.setAttribute('width', 1600 * (before + P.t) / total());
+    document.getElementById('progress-fill').style.width = `${100 * (before + P.t) / total()}%`;
+  }
+  function frame(now) {
+    const dt = clamp((now - P.last) / 1000, 0, 0.1); P.last = Math.max(P.last, now);
+    if (P.playing) {
+      P.t += dt;
+      if (P.t >= scenes[P.i].dur) { if (P.i === scenes.length - 1 && !P.loop) { P.t = scenes[P.i].dur; P.playing = false; syncControls(); } else enter(P.i + 1); }
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------- controls ----------------
+  const sceneBar = document.getElementById('scenes');
+  scenes.forEach((s, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = `${i + 1} ${s.name}`; b.addEventListener('click', () => { enter(i); }); sceneBar.appendChild(b); });
+  const mBar = document.getElementById('mornings');
+  MORNINGS.forEach((m, k) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = m.label; b.addEventListener('click', () => { M.k = k; enter(5); }); mBar.appendChild(b); });
+  const bPlay = document.getElementById('b-play'), bLoop = document.getElementById('b-loop');
+  function syncControls() {
+    sceneBar.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(i === P.i)));
+    mBar.querySelectorAll('button').forEach((b, k) => b.setAttribute('aria-pressed', String(k === M.k)));
+    bPlay.textContent = P.playing ? '❚❚ Pause' : '▶ Play';
+  }
+  bPlay.addEventListener('click', () => { P.playing = !P.playing; syncControls(); });
+  document.getElementById('b-prev').addEventListener('click', () => enter(P.i - 1));
+  document.getElementById('b-next').addEventListener('click', () => enter(P.i + 1));
+  document.getElementById('b-restart').addEventListener('click', () => { enter(0); P.playing = true; syncControls(); });
+  bLoop.addEventListener('click', () => { P.loop = !P.loop; bLoop.setAttribute('aria-pressed', String(P.loop)); });
+  document.getElementById('b-record').addEventListener('click', () => { document.body.classList.add('record'); enter(0); P.playing = true; syncControls(); });
+  document.getElementById('progress').addEventListener('click', e => {
+    const f = e.offsetX / e.currentTarget.clientWidth; let target = f * total();
+    for (let i = 0; i < scenes.length; i++) { if (target < scenes[i].dur) { enter(i); P.t = target; return; } target -= scenes[i].dur; }
+  });
+  addEventListener('keydown', e => {
+    if (e.key === ' ') { e.preventDefault(); P.playing = !P.playing; syncControls(); }
+    if (e.key === 'ArrowRight') enter(P.i + 1);
+    if (e.key === 'ArrowLeft') enter(P.i - 1);
+    if (e.key === 'r' || e.key === 'R') { enter(0); P.playing = true; syncControls(); }
+    if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('record');
+    if (e.key === 'Escape') document.body.classList.remove('record');
+  });
+  note.textContent = 'Every number comes from recorded runs on 24 September 2026 (circuit v2.1 on Jev 1.13, and GPT-6 Sol via OpenRouter). Scenarios are synthetic; the 45-minute manual estimate and ₹88 per US$ are assumptions. Keys: Space pause, ← → scenes, R restart, H hide controls (record mode), Esc show controls.';
+  window.__explainer = { go: (i, t) => { enter(i); P.t = t; P.playing = false; render(); syncControls(); }, durations: scenes.map(x => x.dur) };
+  enter(0);
+  P.last = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
