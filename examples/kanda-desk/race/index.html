@@ -1,0 +1,464 @@
+<title>Kanda Race</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --cream: #FFF4DF; --sky: #FFE7BD; --ink: #2A1B3D; --ink2: #5E4B6E;
+  --marigold: #F2A20C; --marigold-deep: #D47F00; --onion: #B8457E; --indigo: #2E3A87; --leaf: #2F8F5B;
+  --track1: #EBCB9C; --track2: #E3BD89; --chip: #0F7C68; --robot: #6A79A0; --person: #E8A317;
+  --good: #1E9E3A; --warn: #E8A000; --bad: #D23B3B;
+  --display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { background: #2A1B3D; }
+body { margin: 0; color: var(--ink); font: 16px/1.5 var(--display); }
+.page { min-height: 100%; display: grid; justify-items: center; gap: 16px; padding-block: 24px 40px; padding-inline: 16px; }
+.stage-wrap { width: min(100%, 86vh, 900px); aspect-ratio: 1 / 1; max-width: 100%; }
+#stage { width: 100%; height: 100%; display: block; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.35); background: var(--cream); }
+.controls { width: min(100%, 900px); display: grid; gap: 12px; color: #F6ECFF; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row .lbl { font: 600 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: #CDB8E0; margin-right: 4px; }
+button { font: 600 14px/1 var(--display); padding: 9px 14px 8px; border-radius: 20px; border: 2px solid #6D5585; background: #3A2852; color: #F6ECFF; cursor: pointer; }
+button:hover { border-color: var(--marigold); }
+button[aria-pressed="true"] { background: var(--marigold); border-color: var(--marigold); color: var(--ink); }
+button.primary { background: var(--marigold); border-color: var(--marigold); color: var(--ink); }
+button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.note { font-size: 13.5px; color: #CDB8E0; max-width: 80ch; }
+.note a { color: var(--marigold); }
+body.record .controls { display: none; }
+body.record .page { padding: 0; min-height: 100vh; align-content: center; }
+body.record .stage-wrap { width: min(100vw, 100vh); }
+body.record #stage { border-radius: 0; box-shadow: none; }
+
+/* stage animation classes (inside the SVG) */
+.sway { transform-box: fill-box; transform-origin: 50% 0%; animation: sway 3s ease-in-out infinite alternate; }
+@keyframes sway { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+.spin { transform-box: fill-box; transform-origin: center; animation: spin 24s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.running .leg-a { transform-box: fill-box; transform-origin: 50% 0%; animation: stride .16s ease-in-out infinite alternate; }
+.running .leg-b { transform-box: fill-box; transform-origin: 50% 0%; animation: stride .16s ease-in-out infinite alternate-reverse; }
+.walking .leg-a { transform-box: fill-box; transform-origin: 50% 0%; animation: stride .6s ease-in-out infinite alternate; }
+.walking .leg-b { transform-box: fill-box; transform-origin: 50% 0%; animation: stride .6s ease-in-out infinite alternate-reverse; }
+@keyframes stride { from { transform: rotate(-28deg); } to { transform: rotate(28deg); } }
+.bob { animation: bob .6s ease-in-out infinite alternate; }
+@keyframes bob { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+.blink { animation: blink 1s steps(2, jump-none) infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.steam { animation: steam 2.4s ease-in-out infinite; }
+@keyframes steam { 0% { opacity: 0; transform: translateY(6px); } 40% { opacity: .8; } 100% { opacity: 0; transform: translateY(-14px); } }
+.buzz { transform-box: fill-box; transform-origin: center; animation: buzz .35s linear infinite; }
+@keyframes buzz { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+.t-disp { font-family: var(--display); }
+.t-mono { font-family: var(--mono); }
+@media (prefers-reduced-motion: reduce) { .sway, .spin, .bob, .blink, .steam, .buzz, .running *, .walking * { animation: none !important; } }
+</style>
+
+<div class="page">
+  <div class="stage-wrap">
+    <svg id="stage" viewBox="0 0 1000 1000" role="img" aria-label="Cartoon race replaying a recorded morning: a decision circuit, a large AI model and a person deciding an onion order"></svg>
+  </div>
+  <div class="controls">
+    <div class="row" id="moments" role="group" aria-label="Pick a recorded morning"><span class="lbl">Morning</span></div>
+    <div class="row">
+      <span class="lbl">Play</span>
+      <button type="button" class="primary" id="btn-replay">▶ Replay (R)</button>
+      <button type="button" id="btn-loop" aria-pressed="true">Loop</button>
+      <button type="button" id="btn-record">Record mode (H to exit)</button>
+    </div>
+    <p class="note" id="note">Loading recorded runs…</p>
+  </div>
+</div>
+
+<script>
+(async () => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('stage');
+  const el = (tag, attrs = {}, parent = svg, text) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (text != null) n.textContent = text; parent.appendChild(n); return n; };
+  const g = (parent = svg, attrs = {}) => el('g', attrs, parent);
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const ease = x => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- data: recorded runs only ----------
+  let D = null;
+  for (const url of ['data.json', '../page/data.json']) { try { const r = await fetch(url); if (r.ok) { D = await r.json(); break; } } catch {} }
+  const note = document.getElementById('note');
+  if (!D) { note.textContent = 'The recorded runs could not be loaded. Reload the page to try again.'; return; }
+
+  const FX = 88, MANUAL_MIN = 45, RATE = 600;          // assumptions, stated on the end card
+  const K = 1.8;                                          // animation seconds per √(recorded second)
+  const MOMENTS = [
+    { label: 'Rain hits', key: 'rain_shock-2', i: 4 },
+    { label: 'Strike rumour', key: 'strike_fizzle-1', i: 3 },
+    { label: 'Agent tries to instruct the software', key: 'manipulative_agent-1', i: 5 },
+    { label: 'Quiet morning', key: 'normal-1', i: 2 },
+    { label: 'A morning the circuit got wrong', key: 'rain_shock-1', i: 5 },
+    { label: 'Random', random: true }
+  ];
+  const WORD = {
+    purchase: { A: 'Buy nothing', B: 'Buy spot lot', C: 'Order flakes', D: 'Ask the boss' },
+    production: { A: 'keep the plan', B: 'no-onion Navratri lines', C: 'pause cheap SKUs', D: 'ask plant head' },
+    release: { A: 'sent to manager', B: 'sent with a warning', C: 'held for CFO', D: 'handed to a person' }
+  };
+  const VERD = { correct: ['✓', 'var(--good)'], safe: ['!', 'var(--warn)'], wrong: ['✕', 'var(--bad)'], failed: ['–', '#888'] };
+  const S = { key: MOMENTS[0].key, i: MOMENTS[0].i, m: 0, loop: true, raf: 0 };
+
+  // ---------- static scene ----------
+  const defs = el('defs');
+  const chk = el('pattern', { id: 'checker', width: 20, height: 20, patternUnits: 'userSpaceOnUse' }, defs);
+  el('rect', { width: 20, height: 20, fill: '#fff' }, chk); el('rect', { width: 10, height: 10, fill: '#2A1B3D' }, chk); el('rect', { x: 10, y: 10, width: 10, height: 10, fill: '#2A1B3D' }, chk);
+  const glow = el('filter', { id: 'glow', x: '-50%', y: '-50%', width: '200%', height: '200%' }, defs);
+  el('feGaussianBlur', { stdDeviation: 6, result: 'b' }, glow);
+  const fm = el('feMerge', {}, glow); el('feMergeNode', { in: 'b' }, fm); el('feMergeNode', { in: 'SourceGraphic' }, fm);
+  const skyGrad = el('linearGradient', { id: 'sky', x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  el('stop', { offset: 0, 'stop-color': '#FFD99A' }, skyGrad); el('stop', { offset: 1, 'stop-color': '#FFF4DF' }, skyGrad);
+
+  el('rect', { width: 1000, height: 1000, fill: 'url(#sky)' });
+  // sun
+  const sun = g(svg, { transform: 'translate(900 120)' });
+  const rays = g(sun, { class: 'spin' });
+  for (let k = 0; k < 12; k++) el('rect', { x: -4, y: -92, width: 8, height: 26, rx: 4, fill: '#F7B733', transform: `rotate(${k * 30})` }, rays);
+  el('circle', { r: 56, fill: '#F7B733' }, sun); el('circle', { r: 44, fill: '#FFC94D' }, sun);
+  // skyline: mandi sheds, sacks, a truck
+  const sky = g(svg, { fill: '#E9C58F', opacity: .9 });
+  el('path', { d: 'M0 262 L0 214 L60 190 L120 214 L120 262 Z M130 262 L130 222 L200 200 L270 222 L270 262 Z M600 262 L600 226 L660 206 L720 226 L720 262 Z' }, sky);
+  for (const [x, y] of [[300, 244], [322, 244], [311, 228], [760, 246], [782, 246]]) el('ellipse', { cx: x, cy: y, rx: 13, ry: 11 }, sky);
+  el('path', { d: 'M420 262 L420 222 L500 222 L500 236 L528 236 L540 250 L540 262 Z' }, sky);
+  el('circle', { cx: 440, cy: 264, r: 8, fill: '#C9A06A' }, sky); el('circle', { cx: 522, cy: 264, r: 8, fill: '#C9A06A' }, sky);
+  // bunting
+  el('path', { d: 'M-10 20 Q 250 70 500 30 Q 750 -5 1010 40', fill: 'none', stroke: '#7A5A2E', 'stroke-width': 2 });
+  const flagCols = ['#F2A20C', '#B8457E', '#2E3A87', '#2F8F5B', '#E4572E'];
+  for (let k = 0; k < 20; k++) {
+    const x = 20 + k * 50, y = k < 10 ? 20 + 50 * Math.sin((x / 500) * Math.PI) * 0.62 : 30 + 20 * Math.sin(((x - 500) / 500) * Math.PI) * -0.4;
+    const f = g(svg, { transform: `translate(${x} ${y})` });
+    el('path', { d: 'M-15 0 L15 0 L0 30 Z', fill: flagCols[k % 5], class: 'sway', style: `animation-delay:${-k * 0.3}s` }, f);
+  }
+  // title
+  el('text', { x: 40, y: 104, class: 't-disp', 'font-size': 44, 'font-weight': 800, fill: '#2A1B3D' }, svg, 'Who decides first?');
+  el('text', { x: 42, y: 136, class: 't-disp', 'font-size': 21, 'font-weight': 600, fill: '#5E4B6E' }, svg, "Today's onion order, three ways");
+  const tagDate = el('text', { x: 42, y: 162, class: 't-mono', 'font-size': 14, fill: '#8A6F52' }, svg, '');
+  const clock = el('text', { x: 965, y: 262, 'text-anchor': 'end', class: 't-mono', 'font-size': 36, 'font-weight': 600, fill: '#2A1B3D' }, svg, '0.00 s');
+
+  // clue icons
+  const ICONS = [
+    ['Mandi', ic => { el('path', { d: 'M-24 22 Q-30 -6 -14 -18 L14 -18 Q30 -6 24 22 Z', fill: '#B98A55' }, ic); el('path', { d: 'M-16 -18 L16 -18', stroke: '#7A5A2E', 'stroke-width': 4 }, ic); el('ellipse', { cx: 0, cy: -26, rx: 11, ry: 10, fill: '#B8457E' }, ic); el('path', { d: 'M0 -36 q3 -10 -2 -14', stroke: '#2F8F5B', 'stroke-width': 3, fill: 'none' }, ic); }],
+    ['Agent', ic => { el('path', { d: 'M-26 -20 h52 a8 8 0 0 1 8 8 v24 a8 8 0 0 1 -8 8 h-30 l-14 12 v-12 h-8 a8 8 0 0 1 -8 -8 v-24 a8 8 0 0 1 8 -8 z', fill: '#3BB36B' }, ic); for (const x of [-12, 0, 12]) el('circle', { cx: x, cy: 0, r: 4, fill: '#fff' }, ic); }],
+    ['Rain', ic => { el('path', { d: 'M-26 6 a14 14 0 0 1 6 -26 a18 18 0 0 1 34 -2 a13 13 0 0 1 12 28 z', fill: '#6C8FC7' }, ic); for (const x of [-14, 0, 14]) el('path', { d: `M${x} 14 l-4 12`, stroke: '#2E3A87', 'stroke-width': 4, 'stroke-linecap': 'round' }, ic); }],
+    ['News', ic => { el('rect', { x: -26, y: -24, width: 52, height: 46, rx: 4, fill: '#F7F1E6', stroke: '#8A7A66', 'stroke-width': 3 }, ic); el('text', { x: 0, y: -6, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 700, class: 't-disp', fill: '#2A1B3D' }, ic, 'बातमी'); for (const y of [4, 12]) el('rect', { x: -18, y, width: 36, height: 4, fill: '#B9AC97' }, ic); }],
+    ['Cold store', ic => { el('rect', { x: -24, y: -22, width: 48, height: 44, rx: 6, fill: '#BFE3F2', stroke: '#4E90B0', 'stroke-width': 3 }, ic); for (const a of [0, 60, 120]) el('path', { d: 'M0 -13 L0 13', stroke: '#2E6E8E', 'stroke-width': 3, 'stroke-linecap': 'round', transform: `rotate(${a})` }, ic); }]
+  ];
+  const iconEls = ICONS.map(([name, draw], k) => {
+    const x = 90 + k * 132;
+    const outer = g(svg, { transform: `translate(${x} 212)` });
+    const inner = g(outer);
+    el('circle', { r: 40, fill: '#fff', stroke: '#E0C79D', 'stroke-width': 3 }, inner);
+    draw(g(inner));
+    el('text', { y: 60, 'text-anchor': 'middle', class: 't-disp', 'font-size': 16, 'font-weight': 700, fill: '#5E4B6E' }, inner, name);
+    return { outer, inner, x };
+  });
+
+  // track
+  const LANES = [{ y: 290, h: 150, fill: 'var(--track1)', name: 'Decision circuit' }, { y: 440, h: 160, fill: 'var(--track2)', name: 'Large AI model' }, { y: 600, h: 160, fill: 'var(--track1)', name: 'Purchase manager' }];
+  const X0 = 250, X1 = 900;
+  for (const L of LANES) {
+    el('rect', { x: 0, y: L.y, width: 1000, height: L.h, fill: L.fill });
+    el('line', { x1: 0, y1: L.y, x2: 1000, y2: L.y, stroke: '#fff', 'stroke-width': 3, 'stroke-dasharray': '18 14', opacity: .8 });
+    const tag = g(svg, { transform: `translate(18 ${L.y + 14})` });
+    el('rect', { width: 170, height: 30, rx: 15, fill: 'rgba(42,27,61,.82)' }, tag);
+    el('text', { x: 85, y: 21, 'text-anchor': 'middle', class: 't-disp', 'font-size': 17, 'font-weight': 700, fill: '#FFF4DF' }, tag, L.name);
+  }
+  el('line', { x1: X0, y1: 290, x2: X0, y2: 760, stroke: '#fff', 'stroke-width': 6 });
+  el('rect', { x: X1 - 6, y: 290, width: 24, height: 470, fill: 'url(#checker)' });
+
+  // toran arches on the circuit lane: one per round
+  const ARCH_NAMES = ['read', 'gap', 'choose', 'check', 'route'];
+  const archX = [1, 2, 3, 4, 5].map(k => X0 + (X1 - X0) * k / 5 - (k === 5 ? 0 : 0));
+  const arches = archX.map((x, k) => {
+    const a = g(svg, { transform: `translate(${k === 4 ? x - 30 : x} 414)` });
+    const col = el('path', { d: 'M-30 0 L-30 -76 Q0 -110 30 -76 L30 0', fill: 'none', stroke: '#9C7A4E', 'stroke-width': 7, 'stroke-linejoin': 'round' }, a);
+    const flowers = g(a, { opacity: 0 });
+    for (let n = 0; n < 7; n++) { const t = n / 6; const fx = -30 + 60 * t, fy = -76 - 30 * Math.sin(Math.PI * t) - 4; el('circle', { cx: fx, cy: fy, r: 6, fill: n % 2 ? '#F2A20C' : '#E4572E' }, flowers); }
+    const burst = g(a, { opacity: 0 });
+    for (let n = 0; n < 8; n++) el('path', { d: 'M0 -128 L0 -146', stroke: '#F2A20C', 'stroke-width': 4, 'stroke-linecap': 'round', transform: `rotate(${n * 45 - 157} 0 -92)` }, burst);
+    el('text', { y: 19, 'text-anchor': 'middle', class: 't-disp', 'font-size': 15, 'font-weight': 700, fill: '#6B4E2E' }, a, `${k + 1} · ${ARCH_NAMES[k]}`);
+    return { col, flowers, burst };
+  });
+
+  // characters
+  function drawChip() {
+    const c = g(svg);
+    el('ellipse', { cx: 0, cy: 4, rx: 34, ry: 7, fill: 'rgba(0,0,0,.16)' }, c);
+    const speed = g(c, { opacity: 0 });
+    for (const [y, w] of [[-66, 46], [-48, 60], [-30, 40]]) el('line', { x1: -44, y1: y, x2: -44 - w, y2: y, stroke: '#0F7C68', 'stroke-width': 5, 'stroke-linecap': 'round', opacity: .5 }, speed);
+    const legs = g(c);
+    el('line', { class: 'leg-a', x1: -12, y1: -16, x2: -14, y2: 0, stroke: '#0A4F42', 'stroke-width': 7, 'stroke-linecap': 'round' }, legs);
+    el('line', { class: 'leg-b', x1: 12, y1: -16, x2: 14, y2: 0, stroke: '#0A4F42', 'stroke-width': 7, 'stroke-linecap': 'round' }, legs);
+    const body = g(c, { filter: 'url(#glow)' });
+    for (const y of [-72, -58, -44, -30]) { el('rect', { x: -46, y, width: 12, height: 6, rx: 2, fill: '#C9A227' }, body); el('rect', { x: 34, y, width: 12, height: 6, rx: 2, fill: '#C9A227' }, body); }
+    el('rect', { x: -36, y: -88, width: 72, height: 72, rx: 12, fill: '#0F7C68', stroke: '#0A4F42', 'stroke-width': 4 }, body);
+    el('rect', { x: -26, y: -78, width: 52, height: 52, rx: 8, fill: '#16A386' }, body);
+    for (const x of [-11, 11]) { el('circle', { cx: x, cy: -58, r: 8, fill: '#fff' }, body); el('circle', { cx: x + 2, cy: -57, r: 4, fill: '#2A1B3D' }, body); }
+    el('path', { d: 'M-10 -41 Q0 -32 10 -41', stroke: '#fff', 'stroke-width': 4, fill: 'none', 'stroke-linecap': 'round' }, body);
+    return { root: c, speed };
+  }
+  function drawRobot() {
+    const r = g(svg);
+    el('ellipse', { cx: 0, cy: 4, rx: 50, ry: 8, fill: 'rgba(0,0,0,.16)' }, r);
+    const legs = g(r);
+    el('rect', { class: 'leg-a', x: -30, y: -30, width: 16, height: 32, rx: 5, fill: '#4A5677' }, legs);
+    el('rect', { class: 'leg-b', x: 14, y: -30, width: 16, height: 32, rx: 5, fill: '#4A5677' }, legs);
+    const up = g(r, { class: 'bob' });
+    el('rect', { x: -48, y: -124, width: 96, height: 96, rx: 16, fill: '#6A79A0', stroke: '#48557A', 'stroke-width': 4 }, up);
+    el('rect', { x: -30, y: -104, width: 60, height: 40, rx: 8, fill: '#48557A' }, up);
+    const lights = [];
+    for (const [x, c] of [[-16, '#F2A20C'], [0, '#3BB36B'], [16, '#E4572E']]) lights.push(el('circle', { cx: x, cy: -84, r: 6, fill: c, class: 'blink', style: `animation-delay:${x / 40}s` }, up));
+    el('rect', { x: -62, y: -112, width: 14, height: 54, rx: 7, fill: '#5A6890' }, up); el('rect', { x: 48, y: -112, width: 14, height: 54, rx: 7, fill: '#5A6890' }, up);
+    el('rect', { x: -38, y: -178, width: 76, height: 54, rx: 14, fill: '#8594B8', stroke: '#48557A', 'stroke-width': 4 }, up);
+    el('rect', { x: -28, y: -166, width: 56, height: 24, rx: 8, fill: '#1E2A44' }, up);
+    for (const x of [-12, 12]) el('rect', { x: x - 6, y: -160, width: 12, height: 10, rx: 3, fill: '#8CF0FF' }, up);
+    el('line', { x1: 0, y1: -178, x2: 0, y2: -196, stroke: '#48557A', 'stroke-width': 4 }, up);
+    el('circle', { cx: 0, cy: -200, r: 7, fill: '#E4572E', class: 'blink' }, up);
+    // thought bubble
+    const bub = g(r, { transform: 'translate(78 -170)' });
+    for (const [cx, cy, rr] of [[-22, 40, 6], [-10, 26, 9]]) el('circle', { cx, cy, r: rr, fill: '#fff', stroke: '#CBBBA4', 'stroke-width': 2 }, bub);
+    el('rect', { x: 0, y: -26, width: 176, height: 50, rx: 25, fill: '#fff', stroke: '#CBBBA4', 'stroke-width': 2 }, bub);
+    const think = el('text', { x: 88, y: -6, 'text-anchor': 'middle', class: 't-disp', 'font-size': 17, 'font-weight': 700, fill: '#48557A' }, bub, 'thinking…');
+    const tok = el('text', { x: 88, y: 14, 'text-anchor': 'middle', class: 't-mono', 'font-size': 13, fill: '#8A6F52' }, bub, '0 tokens');
+    return { root: r, bub, think, tok };
+  }
+  function drawPerson() {
+    const p = g(svg);
+    el('ellipse', { cx: 0, cy: 4, rx: 48, ry: 8, fill: 'rgba(0,0,0,.16)' }, p);
+    // stool
+    el('rect', { x: -32, y: -46, width: 64, height: 10, rx: 4, fill: '#8A5A2B' }, p);
+    for (const x of [-26, 22]) el('rect', { x, y: -36, width: 6, height: 38, fill: '#6B4420' }, p);
+    // body and legs
+    el('path', { d: 'M-6 -46 L-10 0 M10 -46 L14 0', stroke: '#3B2A55', 'stroke-width': 12, 'stroke-linecap': 'round' }, p);
+    el('path', { d: 'M-30 -44 Q-34 -104 0 -112 Q34 -104 30 -44 Z', fill: '#E8A317' }, p);
+    el('path', { d: 'M-4 -110 L0 -88 L4 -110', stroke: '#B97E0A', 'stroke-width': 3, fill: 'none' }, p);
+    // head
+    el('circle', { cx: 0, cy: -136, r: 24, fill: '#A86B45' }, p);
+    el('path', { d: 'M-24 -140 Q-22 -168 2 -164 Q24 -162 24 -138 Q14 -152 -2 -150 Q-16 -150 -24 -140 Z', fill: '#2B1B14' }, p);
+    el('path', { d: 'M-8 -128 Q0 -124 8 -128', stroke: '#5A2E18', 'stroke-width': 2.5, fill: 'none', 'stroke-linecap': 'round' }, p);
+    for (const x of [-8, 8]) el('circle', { cx: x, cy: -138, r: 2.8, fill: '#2A1B3D' }, p);
+    // arm + phone
+    el('path', { d: 'M18 -96 Q40 -110 30 -130', stroke: '#E8A317', 'stroke-width': 12, fill: 'none', 'stroke-linecap': 'round' }, p);
+    const phone = g(p, { transform: 'translate(30 -140)' });
+    const ph = g(phone, { class: 'buzz' });
+    el('rect', { x: -10, y: -18, width: 20, height: 34, rx: 4, fill: '#2A1B3D' }, ph);
+    el('rect', { x: -7, y: -14, width: 14, height: 24, rx: 2, fill: '#6FE3A0' }, ph);
+    // chai
+    const chai = g(p, { transform: 'translate(-62 -2)' });
+    el('ellipse', { cx: 0, cy: 0, rx: 18, ry: 4, fill: '#E8DCC6' }, chai);
+    el('path', { d: 'M-10 -2 L-8 -22 L8 -22 L10 -2 Z', fill: '#F6EBD9', stroke: '#C7B08E', 'stroke-width': 2 }, chai);
+    for (const x of [-4, 4]) el('path', { d: `M${x} -28 q-5 -7 0 -14 q5 -7 0 -14`, stroke: '#B9A58A', 'stroke-width': 2.5, fill: 'none', class: 'steam', style: `animation-delay:${x / 8}s` }, chai);
+    // chat bubble with the agent's real message
+    const bub = g(p, { transform: 'translate(60 -176)' });
+    el('rect', { x: 0, y: -8, width: 330, height: 74, rx: 16, fill: '#E7FFD9', stroke: '#8BCB7A', 'stroke-width': 2 }, bub);
+    el('path', { d: 'M8 60 L-12 78 L28 62 Z', fill: '#E7FFD9', stroke: '#8BCB7A', 'stroke-width': 2 }, bub);
+    const l1 = el('text', { x: 14, y: 16, class: 't-disp', 'font-size': 16, 'font-weight': 600, fill: '#2A4A22' }, bub, '');
+    const l2 = el('text', { x: 14, y: 36, class: 't-disp', 'font-size': 16, 'font-weight': 600, fill: '#2A4A22' }, bub, '');
+    const l3 = el('text', { x: 14, y: 56, class: 't-mono', 'font-size': 12, fill: '#5E7A55' }, bub, '');
+    return { root: p, bub, l1, l2, l3 };
+  }
+  const chip = drawChip(), robot = drawRobot(), person = drawPerson();
+  chip.root.setAttribute('transform', `translate(${X0} 422)`);
+  robot.root.setAttribute('transform', `translate(${X0} 588) scale(0.72)`);
+  person.root.setAttribute('transform', `translate(${X0 - 10} 748) scale(0.86)`);
+
+  // finish signs
+  function drawSign() {
+    const s = g(svg, { opacity: 0 });
+    el('line', { x1: 0, y1: 0, x2: 0, y2: -40, stroke: '#6B4420', 'stroke-width': 6 }, s);
+    el('rect', { x: -96, y: -112, width: 192, height: 74, rx: 12, fill: '#fff', stroke: '#2A1B3D', 'stroke-width': 4 }, s);
+    const a = el('text', { x: -8, y: -80, 'text-anchor': 'middle', class: 't-disp', 'font-size': 23, 'font-weight': 800, fill: '#2A1B3D' }, s, '');
+    const b = el('text', { x: -8, y: -56, 'text-anchor': 'middle', class: 't-disp', 'font-size': 15, 'font-weight': 600, fill: '#5E4B6E' }, s, '');
+    const badge = el('circle', { cx: 82, cy: -110, r: 22, fill: 'var(--good)', stroke: '#fff', 'stroke-width': 4 }, s);
+    const mark = el('text', { x: 82, y: -101, 'text-anchor': 'middle', class: 't-disp', 'font-size': 26, 'font-weight': 800, fill: '#fff' }, s, '✓');
+    return { s, a, b, badge, mark };
+  }
+  const signChip = drawSign(), signRobot = drawSign();
+
+  // stat cards
+  function drawCard(x, color, title) {
+    const c = g(svg, { transform: `translate(${x} 790)`, opacity: 0 });
+    el('rect', { width: 290, height: 170, rx: 18, fill: '#fff', stroke: color, 'stroke-width': 5 }, c);
+    el('rect', { width: 290, height: 40, rx: 18, fill: color }, c); el('rect', { y: 22, width: 290, height: 18, fill: color }, c);
+    el('text', { x: 145, y: 28, 'text-anchor': 'middle', class: 't-disp', 'font-size': 19, 'font-weight': 700, fill: '#fff' }, c, title);
+    const big = el('text', { x: 145, y: 100, 'text-anchor': 'middle', class: 't-disp', 'font-size': 52, 'font-weight': 800, fill: '#2A1B3D' }, c, '');
+    const sub = el('text', { x: 145, y: 134, 'text-anchor': 'middle', class: 't-disp', 'font-size': 22, 'font-weight': 700, fill: '#5E4B6E' }, c, '');
+    const foot = el('text', { x: 145, y: 158, 'text-anchor': 'middle', class: 't-disp', 'font-size': 15, 'font-weight': 600, fill: '#8A6F52' }, c, '');
+    return { c, big, sub, foot };
+  }
+  const cards = [drawCard(25, '#0F7C68', 'Decision circuit'), drawCard(355, '#6A79A0', 'Large AI model'), drawCard(685, '#C98A10', 'Purchase manager')];
+  const fine = el('text', { x: 500, y: 988, 'text-anchor': 'middle', class: 't-mono', 'font-size': 11.5, fill: '#8A6F52' }, svg, 'Replay of recorded runs · sped up on a √time scale · times shown are the recorded ones');
+
+  // end card
+  const end = g(svg, { opacity: 0 });
+  el('rect', { width: 1000, height: 1000, fill: 'rgba(42,27,61,.97)' }, end);
+  const endRows = [0, 1, 2].map(k => {
+    const row = g(end, { transform: `translate(500 ${300 + k * 128})` });
+    const n = el('text', { 'text-anchor': 'middle', class: 't-disp', 'font-size': 76, 'font-weight': 800, fill: ['#5FE0C0', '#B8C4E8', '#F7C35A'][k] }, row, '');
+    const l = el('text', { y: 36, 'text-anchor': 'middle', class: 't-disp', 'font-size': 22, 'font-weight': 600, fill: '#E8DDF3' }, row, '');
+    return { row, n, l };
+  });
+  el('text', { x: 500, y: 170, 'text-anchor': 'middle', class: 't-disp', 'font-size': 34, 'font-weight': 700, fill: '#FFF4DF' }, end, 'Same morning. Same five messages.');
+  const endLine = el('text', { x: 500, y: 712, 'text-anchor': 'middle', class: 't-disp', 'font-size': 28, 'font-weight': 700, fill: '#FFF4DF' }, end, 'A decision circuit: tiny AI questions, wired like a processor.');
+  const endFine = el('text', { x: 500, y: 752, 'text-anchor': 'middle', class: 't-mono', 'font-size': 13, fill: '#CDB8E0' }, end, '');
+  const endFine2 = el('text', { x: 500, y: 774, 'text-anchor': 'middle', class: 't-mono', 'font-size': 13, fill: '#CDB8E0' }, end, '');
+  const endFine3 = el('text', { x: 500, y: 796, 'text-anchor': 'middle', class: 't-mono', 'font-size': 13, fill: '#CDB8E0' }, end, '');
+  const brand = g(end, { transform: 'translate(500 880)' });
+  el('text', { 'text-anchor': 'middle', class: 't-disp', 'font-size': 44, 'font-weight': 800, fill: '#F2A20C', 'letter-spacing': '1' }, brand, 'capabl machines');
+
+  // ---------- helpers ----------
+  const secs = ms => ms < 10000 ? `${(ms / 1000).toFixed(2)} s` : `${(ms / 1000).toFixed(1)} s`;
+  const rs = x => x < 1 ? `₹${x.toFixed(2)}` : x < 100 ? `₹${x.toFixed(1)}` : `₹${Math.round(x).toLocaleString('en-IN')}`;
+  const dayLabel = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  function wrap(text, n) {
+    const lines = [''];
+    for (const w of text.split(/\s+/)) {
+      const cand = (lines.at(-1) + ' ' + w).trim();
+      if (cand.length <= n) lines[lines.length - 1] = cand;
+      else if (lines.length < 2) lines.push(w);
+      else { lines[1] = lines[1].replace(/[,.]?$/, '') + '…'; return lines; }
+    }
+    return lines;
+  }
+
+  function current() {
+    const jev = D.runs['v2.1'][S.key].mornings[S.i], llm = D.runs.llm[S.key].mornings[S.i], ev = D.evidence[S.key][S.i];
+    const stage = jev.stageMs || [jev.ms];
+    const ends = stage.reduce((a, x) => (a.push((a.at(-1) || 0) + x), a), []);
+    return { jev, llm, ev, ends, jevMs: ends.at(-1), llmMs: llm.ms, manualMs: MANUAL_MIN * 60000 };
+  }
+  const A = ms => K * Math.sqrt(ms / 1000);          // recorded ms → animation seconds
+  const Rm = sec => Math.pow(sec / K, 2) * 1000;     // animation seconds → recorded ms
+
+  function setSign(sign, m, x, y) {
+    sign.s.setAttribute('transform', `translate(${x} ${y})`);
+    if (!m.dec) { sign.a.textContent = 'No answer'; sign.b.textContent = ''; return; }
+    sign.a.textContent = WORD.purchase[m.dec[0]];
+    sign.b.textContent = m.dec[2] === 'D' ? 'and asks a person' : m.dec[2] === 'B' ? 'with a warning' : WORD.production[m.dec[1]];
+    const [mk, col] = VERD[m.v]; sign.mark.textContent = mk; sign.badge.setAttribute('fill', col);
+  }
+
+  function prepare() {
+    const c = current();
+    const [scen, seed] = [S.key.replace(/-\d+$/, ''), S.key.split('-').pop()];
+    tagDate.textContent = `${dayLabel(D.mornings[S.i])} 2026 · ${D.scenarios[scen].label} · seed ${seed}`;
+    const quote = (c.ev.agent.whatsapp.match(/"([^"]+)"/) || [, c.ev.agent.whatsapp])[1];
+    const [a, b] = wrap(quote, 36); person.l1.textContent = a; person.l2.textContent = b || '';
+    person.l3.textContent = 'Agent on WhatsApp · message 1 of 5';
+    setSign(signChip, c.jev, X1 - 175, 424); setSign(signRobot, c.llm, X1 - 205, 586);
+    cards[0].big.textContent = secs(c.jevMs); cards[0].sub.textContent = rs((c.jev.usd || 0) * FX); cards[0].foot.textContent = c.jev.dec ? `${WORD.purchase[c.jev.dec[0]]} ${VERD[c.jev.v][0]}` : 'no answer';
+    cards[1].big.textContent = secs(c.llmMs); cards[1].sub.textContent = rs((c.llm.usd || 0) * FX); cards[1].foot.textContent = c.llm.dec ? `${WORD.purchase[c.llm.dec[0]]}${c.llm.dec[2] === 'D' ? ', asks a person' : ''} ${VERD[c.llm.v][0]}` : 'no answer';
+    cards[2].big.textContent = `~${MANUAL_MIN} min`; cards[2].sub.textContent = rs(MANUAL_MIN / 60 * RATE); cards[2].foot.textContent = 'still reading…';
+    endRows[0].n.textContent = secs(c.jevMs); endRows[0].l.textContent = `decision circuit · ${rs((c.jev.usd || 0) * FX)} · ${c.jev.dec ? WORD.purchase[c.jev.dec[0]].toLowerCase() : 'no answer'} ${c.jev.dec ? VERD[c.jev.v][0] : ''}`;
+    endRows[1].n.textContent = secs(c.llmMs); endRows[1].l.textContent = `large AI model · ${rs((c.llm.usd || 0) * FX)} · ${c.llm.dec ? WORD.purchase[c.llm.dec[0]].toLowerCase() + (c.llm.dec[2] === 'D' ? ', asks a person' : '') : 'no answer'} ${c.llm.dec ? VERD[c.llm.v][0] : ''}`;
+    endRows[2].n.textContent = `~${MANUAL_MIN} min`; endRows[2].l.textContent = `a person reading it all · ${rs(MANUAL_MIN / 60 * RATE)} of their time (estimate)`;
+    endFine.textContent = `Recorded run, ${dayLabel(D.mornings[S.i])} · circuit v${D.circuits['v2.1'].version} on Jev 1.13 vs ${c.llm.model || 'openai/gpt-6-sol'} · ✓ right ! over-cautious ✕ wrong`;
+    endFine2.textContent = `192 mornings each · circuit ${tally('v2.1')} · AI model ${tally('llm')}`;
+    endFine3.textContent = `₹ at ${FX} per US$ · person: ${MANUAL_MIN} min at ₹${RATE} an hour, assumed`;
+    const t = { jev: A(c.jevMs), llm: A(c.llmMs) };
+    return { c, t };
+  }
+  function tally(pid) { let w = 0, s = 0, r = 0, n = 0; for (const run of Object.values(D.runs[pid])) for (const m of run.mornings) { n++; if (m.v === 'wrong') w++; if (m.v === 'correct') r++; if (!m.dec || m.dec[2] === 'D' || m.dec[2] === 'C') s++; } return `${r} ✓ ${w} ✕, ${Math.round(s / n * 100)}% to a person`; }
+
+  // ---------- timeline ----------
+  const INTRO = 1.3, AFTER = 1.6, END_HOLD = 4.2;
+  let P = null, t0 = 0;
+  function draw(T) {
+    const { c, t } = P;
+    // intro: icons pop, then pulse
+    iconEls.forEach((ic, k) => {
+      const p = ease((T - k * 0.12) / 0.4);
+      ic.inner.setAttribute('transform', `translate(0 ${(1 - p) * -120}) scale(${0.6 + 0.4 * p})`);
+      ic.inner.setAttribute('opacity', p);
+    });
+    const Tr = Math.max(0, T - INTRO);                 // race time (animation seconds)
+    const rec = Rm(Tr);                                // recorded ms reached
+    // chip
+    const chipDone = Tr >= t.jev;
+    let cx = X0;
+    const pts = [[0, X0], ...c.ends.map((ms, k) => [ms, archX[k]])];
+    for (let k = 1; k < pts.length; k++) if (rec <= pts[k][0] || k === pts.length - 1) { const [a0, x0] = pts[k - 1], [a1, x1] = pts[k]; cx = x0 + (x1 - x0) * clamp((rec - a0) / Math.max(1, a1 - a0), 0, 1); break; }
+    if (T < INTRO) cx = X0;
+    chip.root.setAttribute('transform', `translate(${cx} 422)`);
+    chip.root.classList.toggle('running', T >= INTRO && !chipDone);
+    chip.speed.setAttribute('opacity', T >= INTRO && !chipDone ? 1 : 0);
+    arches.forEach((a, k) => {
+      const passed = T >= INTRO && rec >= c.ends[k];
+      a.col.setAttribute('stroke', passed ? '#F2A20C' : '#9C7A4E');
+      a.flowers.setAttribute('opacity', passed ? 1 : 0);
+      const since = passed ? Tr - A(c.ends[k]) : -1;
+      a.burst.setAttribute('opacity', since >= 0 && since < 0.5 ? 1 - since / 0.5 : 0);
+    });
+    // robot
+    const lf = T < INTRO ? 0 : clamp(rec / c.llmMs, 0, 1);
+    robot.root.setAttribute('transform', `translate(${X0 + (X1 - 40 - X0) * lf} 588) scale(0.72)`);
+    robot.root.classList.toggle('walking', T >= INTRO && lf < 1);
+    robot.think.textContent = lf >= 1 ? 'done!' : T >= INTRO ? 'thinking…' : 'reading…';
+    robot.bub.setAttribute('transform', lf > 0.55 ? 'translate(-262 -170)' : 'translate(78 -170)');
+    robot.tok.textContent = `${Math.floor(lf * (c.llm.reasonTok || 0))} reasoning tokens`;
+    // person
+    const pf = T < INTRO ? 0 : clamp(rec / c.manualMs, 0, 1);
+    person.l3.textContent = `Agent on WhatsApp · reading message ${1 + Math.min(4, Math.floor(pf * 5))} of 5`;
+    // signs and cards
+    const sgn = (s, tt) => { const p = ease((Tr - tt) / 0.35); s.s.setAttribute('opacity', T >= INTRO ? p : 0); };
+    sgn(signChip, t.jev); sgn(signRobot, t.llm);
+    const card = (cd, tt) => { const p = ease((Tr - tt) / 0.4); cd.c.setAttribute('opacity', T >= INTRO ? p : 0); cd.c.setAttribute('transform', cd.c.getAttribute('transform').replace(/translate\(([\d.]+) [\d.]+\)/, `translate($1 ${790 + (1 - p) * 40})`)); };
+    card(cards[0], t.jev + 0.1); card(cards[1], t.llm + 0.1); card(cards[2], t.llm + 0.5);
+    // clock
+    clock.textContent = T < INTRO ? '0.00 s' : secs(Math.min(rec, c.llmMs));
+    // end card
+    const endStart = INTRO + t.llm + AFTER;
+    const pe = ease((T - endStart) / 0.5);
+    end.setAttribute('opacity', pe);
+    endRows.forEach((r, k) => { const p = ease((T - endStart - 0.3 - k * 0.25) / 0.4); r.row.setAttribute('opacity', p); r.row.setAttribute('transform', `translate(${500 - (1 - p) * 60} ${300 + k * 128})`); });
+    return T >= endStart + END_HOLD;
+  }
+
+  function play() {
+    cancelAnimationFrame(S.raf);
+    P = prepare();
+    if (reduce) { draw(INTRO + P.t.llm + 0.6); return; }
+    t0 = performance.now();
+    const loop = now => {
+      const T = Math.max(0, now - t0) / 1000;
+      const finished = draw(T);
+      if (finished) { if (S.loop) { t0 = now; } else return; }
+      S.raf = requestAnimationFrame(loop);
+    };
+    S.raf = requestAnimationFrame(loop);
+  }
+
+  // ---------- controls ----------
+  const host = document.getElementById('moments');
+  function buildMoments() {
+    host.querySelectorAll('button').forEach(b => b.remove());
+    MOMENTS.forEach((m, k) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = m.label; b.setAttribute('aria-pressed', String(k === S.m));
+      b.addEventListener('click', () => {
+        if (m.random) { const keys = Object.keys(D.runs['v2.1']); S.key = keys[Math.floor(Math.random() * keys.length)]; S.i = Math.floor(Math.random() * D.mornings.length); }
+        else { S.key = m.key; S.i = m.i; }
+        S.m = k; buildMoments(); play();
+      });
+      host.appendChild(b);
+    });
+  }
+  const loopBtn = document.getElementById('btn-loop');
+  document.getElementById('btn-replay').addEventListener('click', play);
+  loopBtn.addEventListener('click', () => { S.loop = !S.loop; loopBtn.setAttribute('aria-pressed', String(S.loop)); if (S.loop) play(); });
+  document.getElementById('btn-record').addEventListener('click', () => { document.body.classList.add('record'); S.loop = true; loopBtn.setAttribute('aria-pressed', 'true'); play(); });
+  addEventListener('keydown', e => {
+    if (e.key === 'r' || e.key === 'R') play();
+    if (e.key === 'h' || e.key === 'H' || e.key === 'Escape') document.body.classList.toggle('record', e.key === 'Escape' ? false : !document.body.classList.contains('record'));
+  });
+  note.innerHTML = 'Every decision, time and cost comes from recorded runs of the Kanda Desk circuit (v2.1, Jev) and GPT-6 Sol on 24 September 2026; the race is sped up on a square-root time scale. The person\'s 45 minutes and ₹600 an hour are assumptions. Record mode hides these controls and loops the square stage. Press R to replay, H to show or hide controls.';
+  buildMoments();
+  play();
+})();
+</script>
