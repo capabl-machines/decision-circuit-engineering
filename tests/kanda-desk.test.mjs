@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { SCENARIOS, SEEDS, MORNINGS, makeWorld, initialStock, composeMorning } from '../examples/kanda-desk/world.mjs';
+import { SCENARIOS, SEEDS, MORNINGS, makeWorld, initialStock, composeMorning, POLICY, CONST } from '../examples/kanda-desk/world.mjs';
 import { permitted, releasePermitted, judge, projectGap } from '../examples/kanda-desk/rulebook.mjs';
 import { runSeason, doNothing } from '../examples/kanda-desk/season.mjs';
 import { OPERATIONS } from '../examples/kanda-desk/compute.mjs';
 
 const load = f => JSON.parse(readFileSync(fileURLToPath(new URL(`../examples/kanda-desk/${f}`, import.meta.url)), 'utf8'));
-const CIRCUITS = { 'circuit.json': load('circuit.json'), 'circuit-v1.1.json': load('circuit-v1.1.json'), 'circuit-v2.json': load('circuit-v2.json') };
+const CIRCUITS = Object.fromEntries(['circuit.json', 'circuit-v1.1.json', 'circuit-v1.2.json', 'circuit-v2.json', 'circuit-v2.1.json'].map(f => [f, load(f)]));
 const circuit = CIRCUITS['circuit.json'];
 const INPUTS = ['today', 'apmc.lasalgaon_report', 'agent.whatsapp', 'imd.nashik_alert', 'news.regional', 'news.stock_limit',
   'cold_store', 'open_orders', 'production_plan', 'supply_options', 'policy'];
@@ -39,7 +39,15 @@ for (const [file, c] of Object.entries(CIRCUITS)) test(`${file} is a valid stage
 test('pure-Jev versions contain no compute gates; the hybrid names exactly three', () => {
   assert.equal(CIRCUITS['circuit.json'].gates.filter(g => g.type === 'compute').length, 0);
   assert.equal(CIRCUITS['circuit-v1.1.json'].gates.filter(g => g.type === 'compute').length, 0);
+  assert.equal(CIRCUITS['circuit-v1.2.json'].gates.filter(g => g.type === 'compute').length, 0);
   assert.equal(CIRCUITS['circuit-v2.json'].gates.filter(g => g.type === 'compute').length, 3);
+  assert.equal(CIRCUITS['circuit-v2.1.json'].gates.filter(g => g.type === 'compute').length, 3);
+});
+
+test('the policy every policy reads states the thresholds the rulebook grades against', () => {
+  assert.match(POLICY, new RegExp(`up to ₹${CONST.limitLakh} lakh`));
+  assert.match(POLICY, new RegExp(`at least ${CONST.spotMinRemovedT} t`));
+  assert.match(POLICY, new RegExp(`at least ${CONST.flakesMinRemovedT} t`));
 });
 
 test('every morning state carries every input path the circuit reads', () => {

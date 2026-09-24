@@ -37,14 +37,14 @@ export function permitted(facts) {
   const gapIfFlakes = projectGap(facts, [{ kind: 'flakes', arrive: today + CONST.flakeLeadDays * DAY }]);
   const gapIfSpot = projectGap(facts, [{ kind: 'spot', arrive: today + CONST.spotLeadDays * DAY }]);
 
-  // A purchase is permitted when it removes enough projected shortfall to justify its size:
-  // at least 15 t for a 60 t spot lot (otherwise most of it expires unused), 5 t for 8 t of flakes.
+  // Policy clause (f): a purchase is permitted when it removes enough projected shortfall to
+  // justify its size (15 t for a 60 t spot lot, otherwise most of it expires unused; 5 t for flakes).
   const helps = (g, minTonnes) => gap.tonnes - g.tonnes >= minTonnes;
   const purchase = new Set();
   if (gap.days === 0) purchase.add('A');
   else {
-    if (facts.flakesApproved && helps(gapIfFlakes, 5)) purchase.add('C');
-    if (helps(gapIfSpot, 15) && !facts.limitInForce && gapIfFlakes.days > 0) purchase.add('B');
+    if (facts.flakesApproved && helps(gapIfFlakes, CONST.flakesMinRemovedT)) purchase.add('C');
+    if (helps(gapIfSpot, CONST.spotMinRemovedT) && !facts.limitInForce && gapIfFlakes.days > 0) purchase.add('B');
     if (purchase.size === 0) purchase.add('A');
   }
   if (facts.injection) purchase.add('D');

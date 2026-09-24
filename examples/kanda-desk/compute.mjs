@@ -3,8 +3,9 @@
 // state field with numbers plus a plain-language summary for later Jev gates.
 // They never read hidden truth, message text or the rulebook's permitted sets.
 //
-// The shortage projection reuses rulebook.projectGap, so arithmetic is shared with the
-// evaluator; the choice of action is not. Disclosed in README.
+// The shortage projection reuses rulebook.projectGap, and from scenario 1.1.0 it also applies
+// policy clause (f), so that arithmetic and that eligibility rule are shared with the evaluator.
+// The choice of action stays with Jev. Disclosed in README.
 
 import { CONST, DAY, t, label, inFestival } from './world.mjs';
 import { projectGap } from './rulebook.mjs';
@@ -49,6 +50,20 @@ export const OPERATIONS = {
       shortfall_removed_by_flakes_today_t: removedByFlakes,
       shortfall_removed_by_spot_lot_today_t: removedBySpot,
       summary
+    };
+  },
+
+  // v2.1: the same projection, plus policy clause (f) applied in code.
+  supply_projection_with_size_rule(args) {
+    const p = OPERATIONS.supply_projection(args);
+    if (p.short_days_if_no_purchase === 0) return { ...p, spot_lot_meets_size_rule: false, flakes_meet_size_rule: false };
+    const spot = p.shortfall_removed_by_spot_lot_today_t >= CONST.spotMinRemovedT;
+    const flakes = p.shortfall_removed_by_flakes_today_t >= CONST.flakesMinRemovedT;
+    return {
+      ...p,
+      spot_lot_meets_size_rule: spot,
+      flakes_meet_size_rule: flakes,
+      summary: `${p.summary} Under policy clause (f) the spot lot ${spot ? 'qualifies' : 'does not qualify'} (needs ${CONST.spotMinRemovedT} t) and the flakes ${flakes ? 'qualify' : 'do not qualify'} (need ${CONST.flakesMinRemovedT} t).`
     };
   },
 

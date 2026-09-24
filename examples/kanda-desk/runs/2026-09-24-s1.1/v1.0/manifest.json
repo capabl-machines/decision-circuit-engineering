@@ -1,0 +1,47 @@
+{
+ "started": "2026-09-24T17:42:21.211Z",
+ "finished": "2026-09-24T17:42:36.938Z",
+ "commit": "1a44f73071a225230c06e3ffc2c35630faff2eef",
+ "circuit": {
+  "file": "circuit.json",
+  "name": "kanda-20",
+  "version": "1.0.0",
+  "sha256": "52b6b7d7e04614e7580807656689bd7e1ec7d86837dba5c8f68063cd432e3053"
+ },
+ "scenarioVersion": "1.1.0",
+ "policies": [
+  "jev"
+ ],
+ "scenarios": [
+  "normal",
+  "rain_shock",
+  "strike_fizzle",
+  "manipulative_agent"
+ ],
+ "seeds": [
+  1,
+  2,
+  3
+ ],
+ "mornings": null,
+ "models": {
+  "jev": "jev-1.13.0",
+  "llm": "openai/gpt-6-sol"
+ },
+ "prices": {
+  "jev-1.13.0": {
+   "inputPerM": 0.042,
+   "outputPerM": 0,
+   "source": "https://docs.typesafe.ai/models",
+   "checked": "2026-09-24"
+  },
+  "openai/gpt-6-sol": {
+   "inputPerM": 2,
+   "outputPerM": 10,
+   "source": "https://openrouter.ai/api/v1/models",
+   "checked": "2026-09-24"
+  }
+ },
+ "spentUsd": 0.0699,
+ "maxUsd": 1
+}

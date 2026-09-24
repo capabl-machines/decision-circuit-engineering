@@ -1,0 +1,583 @@
+<title>Kanda Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root {
+  --bg: #EDF1EF; --panel: #F8FAF9; --gate: #FFFFFF; --ink: #16211D; --muted: #56655F; --faint: #7D8A85;
+  --line: #C3CDC8; --reg: #DCE3DF; --trace: #0B6B58; --trace-soft: #BFE0D6; --hot: #A35A00; --hot-soft: #F6E3C4;
+  --good: #0CA30C; --warn: #FAB219; --crit: #D03B3B; --fail: #9AA59F; --seq: #2A78D6;
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0F1614; --panel: #151F1C; --gate: #1A2622; --ink: #E2EAE6; --muted: #93A39C; --faint: #74827C;
+    --line: #2E3D38; --reg: #23312C; --trace: #45C4A3; --trace-soft: #1D4A3F; --hot: #E9A43C; --hot-soft: #4A3515;
+    --fail: #5E6A65; --seq: #3987E5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0F1614; --panel: #151F1C; --gate: #1A2622; --ink: #E2EAE6; --muted: #93A39C; --faint: #74827C;
+  --line: #2E3D38; --reg: #23312C; --trace: #45C4A3; --trace-soft: #1D4A3F; --hot: #E9A43C; --hot-soft: #4A3515;
+  --fail: #5E6A65; --seq: #3987E5;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 72px; display: grid; gap: 36px; }
+h1, h2, h3 { font-family: var(--cond); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(32px, 5vw, 48px); font-weight: 700; }
+h2 { font-size: 24px; font-weight: 600; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+a { color: var(--trace); }
+.eyebrow { font: 500 12px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { max-width: 74ch; font-size: 16.5px; }
+.stack { display: grid; gap: 12px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { font: 500 12px/1 var(--mono); padding: 7px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.card > *, #inside > * { min-width: 0; }
+#inside { display: grid; gap: 12px; min-width: 0; }
+.section { display: grid; gap: 16px; }
+.section > p { max-width: 76ch; }
+
+/* filters */
+.filters { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.seg > span { font: 500 11px var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.seg button, select, input[type=number] { font: 500 13px/1 var(--mono); padding: 8px 10px; border-radius: 3px; border: 1px solid var(--line); background: var(--gate); color: var(--ink); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.seg button:hover { border-color: var(--trace); }
+button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--trace); outline-offset: 2px; }
+input[type=number] { width: 88px; cursor: text; }
+
+/* scoreboard */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th { font: 500 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tbody tr.pol { cursor: pointer; }
+tbody tr.pol:hover td { background: var(--gate); }
+tbody tr.pol.sel td { background: var(--hot-soft); }
+.pname { font-weight: 600; white-space: nowrap; }
+.pkind { font: 500 11px var(--mono); color: var(--muted); display: block; }
+.vbar { display: flex; gap: 2px; height: 18px; min-width: 260px; }
+.vbar span { display: block; height: 100%; border-radius: 2px; position: relative; }
+.vbar .correct { background: var(--good); } .vbar .safe { background: var(--warn); } .vbar .wrong { background: var(--crit); } .vbar .failed { background: var(--fail); }
+.vlab { font: 500 11.5px var(--mono); color: var(--muted); margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.key { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
+.key i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 6px; }
+.icon { font-family: var(--mono); font-weight: 600; }
+
+/* cost */
+.costgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .costgrid { grid-template-columns: 1fr; } }
+.inputs { display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; align-items: center; font-size: 13.5px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 620px) { .tiles { grid-template-columns: 1fr; } }
+.tile { border: 1px solid var(--line); border-radius: 4px; padding: 14px; background: var(--gate); display: grid; gap: 6px; align-content: start; }
+.tile .big { font: 600 26px/1.1 var(--cond); }
+.tile .sub { font-size: 12.5px; color: var(--muted); }
+.tile.lead { border-color: var(--trace); }
+
+/* explorer */
+.days { display: grid; grid-template-columns: repeat(16, minmax(56px, 1fr)); gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+.day { border: 1px solid var(--line); border-radius: 3px; background: var(--gate); padding: 6px 4px 5px; display: grid; gap: 3px; justify-items: center; cursor: pointer; font-family: var(--mono); color: var(--ink); }
+.day .d { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.day .x { font-size: 13px; font-weight: 600; letter-spacing: .06em; }
+.day .s { width: 100%; height: 5px; border-radius: 2px; }
+.day.sel { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.s.correct { background: var(--good); } .s.safe { background: var(--warn); } .s.wrong { background: var(--crit); } .s.failed { background: var(--fail); }
+.gapbars { display: grid; grid-template-columns: repeat(16, minmax(56px, 1fr)); gap: 4px; align-items: end; height: 48px; overflow: hidden; }
+.gapbars span { background: var(--seq); border-radius: 2px 2px 0 0; min-height: 0; display: block; }
+.detail { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr); gap: 20px; align-items: start; }
+@media (max-width: 980px) { .detail { grid-template-columns: 1fr; } }
+.evidence { display: grid; gap: 10px; font-size: 13.5px; max-height: 760px; overflow-y: auto; padding-right: 4px; }
+.evidence dt { font: 500 11px var(--mono); color: var(--muted); letter-spacing: .04em; }
+.evidence dd { margin: 0 0 4px; }
+.verdicts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 620px) { .verdicts { grid-template-columns: 1fr; } }
+.vcell { border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; background: var(--gate); display: grid; gap: 4px; }
+.vcell .opt { font-weight: 600; }
+.pill { display: inline-flex; gap: 6px; align-items: center; font: 600 11.5px var(--mono); padding: 3px 7px; border-radius: 3px; width: fit-content; }
+.pill.correct { background: color-mix(in srgb, var(--good) 22%, transparent); }
+.pill.safe { background: color-mix(in srgb, var(--warn) 30%, transparent); }
+.pill.wrong { background: color-mix(in srgb, var(--crit) 22%, transparent); }
+.pill.failed { background: color-mix(in srgb, var(--fail) 35%, transparent); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; max-width: 100%; }
+#schem { display: block; min-width: 940px; width: 100%; height: auto; color: var(--ink); }
+.wire { stroke: var(--line); stroke-width: 1.2; fill: none; }
+.reg { fill: var(--reg); stroke: var(--line); }
+.t { fill: currentColor; font-family: var(--mono); font-size: 11px; }
+.t.small { font-size: 9.5px; fill: var(--muted); }
+.t.head { font-family: var(--cond); font-weight: 600; font-size: 12.5px; letter-spacing: .06em; }
+.t.val { font-weight: 600; fill: var(--trace); font-size: 10.5px; }
+.gate { cursor: pointer; }
+.gate .body { fill: var(--gate); stroke: var(--ink); stroke-width: 1.3; }
+.gate.compute .body { stroke-dasharray: 4 3; fill: var(--reg); }
+.gate.sel .body { stroke: var(--hot); stroke-width: 2.6; fill: var(--hot-soft); }
+.gate.out .body { stroke: var(--trace); stroke-width: 2; }
+.gate:focus-visible .body { stroke: var(--trace); stroke-width: 3; }
+.cell { fill: var(--line); } .cell.on { fill: var(--trace); } .cell.top { fill: var(--hot); }
+.link-in { stroke: var(--hot); stroke-width: 1.8; fill: none; opacity: .85; }
+.dist { display: grid; gap: 6px; }
+.drow { display: grid; grid-template-columns: 28px minmax(0, 1fr) 110px 42px; gap: 10px; align-items: center; font-size: 13px; }
+.drow .k { font: 600 12px var(--mono); color: var(--muted); }
+.drow .bar { height: 8px; background: var(--line); border-radius: 1px; overflow: hidden; }
+.drow .bar span { display: block; height: 100%; background: var(--trace); }
+.drow.top .bar span { background: var(--hot); } .drow.top .k { color: var(--hot); }
+.drow .p { font: 500 12px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .drow { grid-template-columns: 24px minmax(0, 1fr) 40px; } .drow .bar { grid-column: 2 / 4; grid-row: 2; } }
+.qbox { font-size: 14px; padding: 12px 14px; background: var(--gate); border: 1px solid var(--line); border-radius: 3px; }
+pre.reply { font: 12.5px/1.5 var(--mono); background: var(--gate); border: 1px solid var(--line); border-radius: 3px; padding: 12px; white-space: pre-wrap; margin: 0; }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80ch; }
+#tip { position: fixed; pointer-events: none; z-index: 20; background: var(--ink); color: var(--bg); font: 12px/1.4 var(--sans); padding: 7px 9px; border-radius: 3px; max-width: 280px; }
+#tip b { font: 600 13px var(--mono); }
+#loading { padding: 40px 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="stack">
+  <p class="eyebrow">Recorded live runs · 24 September 2026 · jev-1.13.0 · openai/gpt-6-sol</p>
+  <h1>Kanda Desk</h1>
+  <p class="lede">Every morning at 07:00 a Pune gravy maker has to decide whether to buy onion, change production, or wait. The evidence arrives as a Lasalgaon APMC report, a commission agent's WhatsApp, an IMD alert, a Marathi news item and a cold-store QC note. This page replays 192 mornings per policy: four scenarios, three seeds, sixteen mornings each, run through five circuit versions, one large LLM and two fixed rules. Every answer shown was recorded from the provider. Nothing is hand-written.</p>
+  <div class="badges" id="badges"></div>
+</header>
+
+<div class="filters" role="group" aria-label="Filters for the scoreboard and cost">
+  <div class="seg" id="f-scenario"><span>Scenario</span></div>
+  <div class="seg" id="f-seed"><span>Seed</span></div>
+</div>
+
+<section class="section" aria-labelledby="sb-title">
+  <div class="stack" style="gap:6px">
+    <p class="eyebrow">Scoreboard · mornings graded by a rulebook written before any run</p>
+    <h2 id="sb-title">Who made the right call</h2>
+  </div>
+  <div class="key" aria-hidden="true">
+    <span><i style="background:var(--good)"></i><span class="icon">✓</span> correct: inside the permitted set</span>
+    <span><i style="background:var(--warn)"></i><span class="icon">!</span> safe: an unneeded flag or escalation</span>
+    <span><i style="background:var(--crit)"></i><span class="icon">✕</span> wrong</span>
+    <span><i style="background:var(--fail)"></i><span class="icon">–</span> failed: no valid answer</span>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Policy</th><th>Mornings graded</th><th class="num">Purchases recommended</th><th class="num">Short days to Diwali</th><th class="num">Provider cost / morning</th><th class="num">Median time / morning</th></tr></thead>
+    <tbody id="sb-body"></tbody>
+  </table></div>
+  <p class="muted small">Select a row to open that policy in the season explorer below. Purchases and short days come from the closed-loop simulation: each morning's stock reflects the recommendations released on earlier mornings.</p>
+</section>
+
+<section class="section" aria-labelledby="cost-title">
+  <div class="stack" style="gap:6px">
+    <p class="eyebrow">A year of mornings · measured provider cost, your assumptions for people</p>
+    <h2 id="cost-title">What the daily decision costs</h2>
+  </div>
+  <div class="costgrid">
+    <div class="card">
+      <h3>Your assumptions</h3>
+      <div class="inputs">
+        <label for="in-mornings">Decision mornings per year</label><input type="number" id="in-mornings" value="300" min="1" max="366">
+        <label for="in-manual">Minutes to read the evidence and decide by hand</label><input type="number" id="in-manual" value="45" min="0" max="600">
+        <label for="in-review">Minutes to review a released recommendation</label><input type="number" id="in-review" value="5" min="0" max="120">
+        <label for="in-rate">Purchase manager's cost, ₹ per hour</label><input type="number" id="in-rate" value="600" min="0" step="50">
+        <label for="in-fx">₹ per US dollar</label><input type="number" id="in-fx" value="88" min="1" step="0.5">
+      </div>
+      <p class="muted small">These five numbers are assumptions you set, not measurements. Mornings a policy routes to a person, holds for the CFO or fails count as full manual mornings. Provider cost per morning is measured from the recorded runs in the current filter.</p>
+    </div>
+    <div class="stack">
+      <div class="tiles" id="tiles"></div>
+      <p class="muted small" id="cost-note"></p>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="ex-title">
+  <div class="stack" style="gap:6px">
+    <p class="eyebrow">Season explorer · one scenario, one seed, one policy</p>
+    <h2 id="ex-title">Sixteen mornings</h2>
+  </div>
+  <div class="filters" style="position:static;border:0;padding:0" role="group" aria-label="Season explorer controls">
+    <div class="seg"><span>Policy</span><select id="ex-policy" aria-label="Policy"></select></div>
+    <div class="seg"><span>Scenario</span><select id="ex-scenario" aria-label="Scenario"></select></div>
+    <div class="seg"><span>Seed</span><select id="ex-seed" aria-label="Seed"></select></div>
+  </div>
+  <p class="muted" id="ex-summary"></p>
+  <div class="card">
+    <div class="days" id="days" role="listbox" aria-label="Mornings"></div>
+    <div class="stack" style="gap:4px">
+      <div class="gapbars" id="gapbars" aria-hidden="true"></div>
+      <p class="muted small">Blue bars: shortfall in tonnes that the rulebook projects on each morning if nothing more is bought, before new kharif onion is expected. Letters: purchase, production, release.</p>
+    </div>
+  </div>
+  <div class="detail">
+    <div class="card">
+      <div class="stack" style="gap:4px"><p class="eyebrow" id="ev-eyebrow"></p><h3>Evidence the policy read</h3></div>
+      <dl class="evidence" id="evidence"></dl>
+    </div>
+    <div class="card">
+      <div class="stack" style="gap:4px"><p class="eyebrow" id="dec-eyebrow"></p><h3>Decision and verdict</h3></div>
+      <div class="verdicts" id="verdicts"></div>
+      <div class="meta" id="dec-meta"></div>
+      <div id="inside"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="find-title">
+  <h2 id="find-title">What the runs show</h2>
+  <ul class="plain" id="findings"></ul>
+</section>
+
+<section class="section" aria-labelledby="meth-title">
+  <h2 id="meth-title">How this was measured</h2>
+  <ul class="plain" id="method"></ul>
+</section>
+
+<p id="loading" class="muted">Loading recorded runs…</p>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const code = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent, text) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (text != null) n.textContent = text; parent.appendChild(n); return n; };
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+  let D;
+  try { D = await (await fetch('data.json')).json(); }
+  catch (e) { $('loading').textContent = 'The recorded runs could not be loaded. Reload the page to try again.'; return; }
+  $('loading').remove();
+
+  const VERD = { correct: ['✓', 'correct'], safe: ['!', 'safe'], wrong: ['✕', 'wrong'], failed: ['–', 'failed'] };
+  const KIND = { 'v2.1': 'Jev + 3 code gates', 'v2.0': 'Jev + 3 code gates', 'v1.2': 'Jev only', 'v1.1': 'Jev only', 'v1.0': 'Jev only', llm: 'One LLM prompt', reorder_rule: 'Fixed rule, no model', do_nothing: 'Fixed rule, no model' };
+  const scenKeys = Object.keys(D.scenarios);
+  const pol = Object.fromEntries(D.policies.map(p => [p.id, p]));
+  const dayLabel = iso => { const d = new Date(iso + 'T00:00:00Z'); return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }); };
+  const shortDay = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const fmtUsd = x => x == null ? '–' : x < 0.01 ? `$${x.toFixed(4)}` : `$${x.toFixed(3)}`;
+  const fmtMs = ms => ms == null ? '–' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
+  const inr = x => '₹' + Math.round(x).toLocaleString('en-IN');
+  const median = a => { const s = a.filter(x => x != null).sort((x, y) => x - y); return s.length ? s[s.length >> 1] : null; };
+
+  // ---------- state ----------
+  const S = { scenario: store.get('kd.scenario') || 'all', seed: store.get('kd.seed') || 'all', policy: 'v2.1', exScenario: 'rain_shock', exSeed: '2', morning: 4, gate: null };
+  if (!pol[S.policy]) S.policy = D.policies[0].id;
+
+  const keysFor = () => scenKeys.filter(s => S.scenario === 'all' || s === S.scenario).flatMap(s => D.seeds.filter(n => S.seed === 'all' || String(n) === S.seed).map(n => `${s}-${n}`));
+
+  function stats(pid) {
+    const r = { correct: 0, safe: 0, wrong: 0, failed: 0, n: 0, spend: 0, short: 0, usd: [], ms: [], manualShare: 0, routed: 0 };
+    for (const key of keysFor()) {
+      const run = D.runs[pid]?.[key]; if (!run) continue;
+      r.spend += run.totals.spendLakh; r.short += run.totals.shortDaysToDiwali;
+      for (const m of run.mornings) {
+        r.n++; r[m.v]++;
+        if (m.usd != null) r.usd.push(m.usd);
+        if (m.ms != null && !m.err) r.ms.push(m.ms);
+        if (!m.dec || m.dec[2] === 'C' || m.dec[2] === 'D') r.routed++;
+      }
+    }
+    r.usdPerMorning = r.usd.length ? r.usd.reduce((a, b) => a + b, 0) / r.usd.length : null;
+    r.medianMs = median(r.ms);
+    r.manualShare = r.n ? r.routed / r.n : 0;
+    return r;
+  }
+
+  // ---------- badges ----------
+  const spent = Object.values(D.manifests).reduce((a, m) => a + (m.spentUsd || 0), 0);
+  $('badges').innerHTML = [
+    `Scenario ${esc(D.scenarioVersion)}`, `${D.policies.length} policies × 192 mornings`, `Provider spend for these runs $${spent.toFixed(2)}`, 'Recommend only · nothing was bought'
+  ].map(b => `<span class="badge">${b}</span>`).join('');
+
+  // ---------- filters ----------
+  function segButtons(host, items, get, set) {
+    for (const [val, label] of items) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label; b.dataset.v = val;
+      b.addEventListener('click', () => { set(val); renderAll(); });
+      host.appendChild(b);
+    }
+    return () => host.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === get())));
+  }
+  const syncScen = segButtons($('f-scenario'), [['all', 'All'], ...scenKeys.map(k => [k, D.scenarios[k].label])], () => S.scenario, v => { S.scenario = v; store.set('kd.scenario', v); if (v !== 'all') S.exScenario = v; });
+  const syncSeed = segButtons($('f-seed'), [['all', 'All'], ...D.seeds.map(n => [String(n), String(n)])], () => S.seed, v => { S.seed = v; store.set('kd.seed', v); if (v !== 'all') S.exSeed = v; });
+
+  // ---------- tooltip ----------
+  const tip = $('tip');
+  function showTip(e, html) { tip.innerHTML = html; tip.hidden = false; const x = Math.min(e.clientX + 14, innerWidth - 300), y = e.clientY + 14; tip.style.left = x + 'px'; tip.style.top = y + 'px'; }
+  const hideTip = () => { tip.hidden = true; };
+
+  // ---------- scoreboard ----------
+  function renderScoreboard() {
+    const body = $('sb-body'); body.replaceChildren();
+    for (const p of D.policies) {
+      const s = stats(p.id);
+      const tr = document.createElement('tr');
+      tr.className = 'pol' + (p.id === S.policy ? ' sel' : ''); tr.tabIndex = 0;
+      tr.innerHTML = `<td><span class="pname">${esc(p.label)}</span><span class="pkind">${esc(KIND[p.id] || '')}</span></td><td><div class="vbar"></div><div class="vlab"></div></td><td class="num">${inr(s.spend * 1e5 / 1e5)} lakh</td><td class="num">${s.short}</td><td class="num">${p.id.startsWith('v') || p.id === 'llm' ? fmtUsd(s.usdPerMorning) : '–'}</td><td class="num">${fmtMs(s.medianMs)}</td>`;
+      const bar = tr.querySelector('.vbar'), lab = tr.querySelector('.vlab');
+      for (const k of ['correct', 'safe', 'wrong', 'failed']) {
+        if (!s[k]) continue;
+        const seg = document.createElement('span'); seg.className = k; seg.style.flex = String(s[k]);
+        seg.tabIndex = 0; seg.setAttribute('aria-label', `${s[k]} ${k} of ${s.n}`);
+        const h = e => showTip(e, `<b>${s[k]}</b> of ${s.n} mornings ${VERD[k][1]}<br>${esc(p.label)}`);
+        seg.addEventListener('pointermove', h); seg.addEventListener('pointerleave', hideTip);
+        bar.appendChild(seg);
+        const t = document.createElement('span'); t.textContent = `${VERD[k][0]} ${s[k]}`; lab.appendChild(t);
+      }
+      const go = () => { S.policy = p.id; S.gate = null; renderAll(); $('ex-title').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      tr.addEventListener('click', go); tr.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+      body.appendChild(tr);
+    }
+  }
+
+  // ---------- cost ----------
+  function renderCost() {
+    const v = id => Math.max(0, Number($(id).value) || 0);
+    const N = v('in-mornings'), manual = v('in-manual'), review = v('in-review'), rate = v('in-rate'), fx = v('in-fx');
+    const person = mins => mins / 60 * rate;
+    const rows = [
+      ['v2.1', 'Hybrid circuit v2.1', true],
+      ['llm', 'GPT-6 Sol, one prompt', false],
+      [null, 'By hand every morning', false]
+    ];
+    $('tiles').replaceChildren(...rows.map(([pid, label, lead]) => {
+      const t = document.createElement('div'); t.className = 'tile' + (lead ? ' lead' : '');
+      let perMorning, lines;
+      if (pid) {
+        const s = stats(pid);
+        const provider = (s.usdPerMorning || 0) * fx;
+        const people = person(s.manualShare * manual + (1 - s.manualShare) * review);
+        perMorning = provider + people;
+        lines = [`Provider ${inr(provider * N)} a year (${fmtUsd(s.usdPerMorning)} a morning)`, `People ${inr(people * N)}: ${(s.manualShare * 100).toFixed(0)}% of mornings routed to a person or failed`, `Median ${fmtMs(s.medianMs)} per morning; ${s.wrong} of ${s.n} mornings wrong`];
+      } else {
+        perMorning = person(manual);
+        lines = [`${manual} minutes a morning at ${inr(rate)} an hour`, 'No provider cost', 'Accuracy not measured'];
+      }
+      t.innerHTML = `<span class="eyebrow">${esc(label)}</span><span class="big">${inr(perMorning * N)}</span><span class="sub">a year for ${N} mornings</span>${lines.map(l => `<span class="sub">${esc(l)}</span>`).join('')}`;
+      return t;
+    }));
+    const j = stats('v2.1'), l = stats('llm');
+    $('cost-note').textContent = (j.usdPerMorning && l.usdPerMorning)
+      ? `Measured in the current filter: the LLM costs ${(l.usdPerMorning / j.usdPerMorning).toFixed(0)}× more per morning than the hybrid circuit and takes ${(l.medianMs / j.medianMs).toFixed(0)}× longer. Shortage penalties are not included here; see short days in the scoreboard.`
+      : 'Provider cost is shown once both policies have recorded mornings in the current filter.';
+  }
+  for (const id of ['in-mornings', 'in-manual', 'in-review', 'in-rate', 'in-fx']) $(id).addEventListener('input', renderCost);
+
+  // ---------- explorer ----------
+  const selPolicy = $('ex-policy'), selScen = $('ex-scenario'), selSeed = $('ex-seed');
+  selPolicy.innerHTML = D.policies.map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('');
+  selScen.innerHTML = scenKeys.map(k => `<option value="${k}">${esc(D.scenarios[k].label)}</option>`).join('');
+  selSeed.innerHTML = D.seeds.map(n => `<option value="${n}">${n}</option>`).join('');
+  selPolicy.addEventListener('change', () => { S.policy = selPolicy.value; S.gate = null; renderAll(); });
+  selScen.addEventListener('change', () => { S.exScenario = selScen.value; renderAll(); });
+  selSeed.addEventListener('change', () => { S.exSeed = selSeed.value; renderAll(); });
+
+  const exKey = () => `${S.exScenario}-${S.exSeed}`;
+  const run = () => D.runs[S.policy]?.[exKey()];
+
+  function renderDays() {
+    selPolicy.value = S.policy; selScen.value = S.exScenario; selSeed.value = S.exSeed;
+    const r = run(); const days = $('days'), bars = $('gapbars');
+    days.replaceChildren(); bars.replaceChildren();
+    if (!r) return;
+    const t = r.totals;
+    $('ex-summary').textContent = `${D.scenarios[S.exScenario].summary} ${pol[S.policy].label}: ${t.correct} correct, ${t.safe} safe, ${t.wrong} wrong, ${t.failed} failed; ₹${t.spendLakh} lakh of purchases; ${t.shortDaysToDiwali} short production days before Diwali. Kharif actually arrived ${dayLabel(r.truth.kharifStart)}.`;
+    const maxGap = Math.max(1, ...Object.values(D.runs).flatMap(x => x[exKey()]?.mornings.map(m => m.gap?.tonnes || 0) || []));
+    r.mornings.forEach((m, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'day' + (i === S.morning ? ' sel' : ''); b.setAttribute('role', 'option'); b.setAttribute('aria-selected', String(i === S.morning));
+      b.setAttribute('aria-label', `${dayLabel(D.mornings[i])}: ${m.dec || 'no decision'}, ${m.v}`);
+      b.innerHTML = `<span class="d">${esc(shortDay(D.mornings[i]))}</span><span class="x">${esc(m.dec || '···')}</span><span class="s ${m.v}"></span>`;
+      b.addEventListener('click', () => { S.morning = i; renderExplorer(); });
+      days.appendChild(b);
+      const g = document.createElement('span'); const tons = m.gap?.tonnes || 0;
+      g.style.height = `${(tons / maxGap) * 100}%`;
+      g.addEventListener('pointermove', e => showTip(e, `<b>${tons} t</b> projected shortfall<br>${esc(dayLabel(D.mornings[i]))}`)); g.addEventListener('pointerleave', hideTip);
+      bars.appendChild(g);
+    });
+  }
+
+  const FIELD_LABELS = [['today', 'today'], ['apmc.lasalgaon_report', 'apmc.lasalgaon_report'], ['agent.whatsapp', 'agent.whatsapp'], ['imd.nashik_alert', 'imd.nashik_alert'], ['news.regional', 'news.regional'], ['news.stock_limit', 'news.stock_limit'], ['cold_store', 'cold_store'], ['open_orders', 'open_orders'], ['supply_options', 'supply_options'], ['production_plan', 'production_plan'], ['policy', 'policy']];
+  const getPath = (o, p) => p.split('.').reduce((x, k) => (x == null ? undefined : x[k]), o);
+
+  function renderEvidence(m) {
+    const ev = D.evidence[exKey()][S.morning];
+    $('ev-eyebrow').textContent = `${dayLabel(D.mornings[S.morning])} 2026 · 07:00`;
+    const dl = $('evidence'); dl.replaceChildren();
+    for (const [path] of FIELD_LABELS) {
+      const val = path === 'cold_store' ? m.cold : path === 'open_orders' ? m.orders : getPath(ev, path);
+      const dt = document.createElement('dt'); dt.textContent = path;
+      const dd = document.createElement('dd'); dd.textContent = val ?? '';
+      dl.append(dt, dd);
+    }
+  }
+
+  const OPT = {
+    purchase: ['Buy nothing today', 'Spot-buy the Lasalgaon lot', 'Order dehydrated flakes', 'Escalate to purchase head'],
+    production: ['Keep the plan', 'Satvik lines; hold onion for QSR and festival', 'Pause low-margin SKUs', 'Escalate to plant head'],
+    release: ['Release to purchase manager', 'Release with uncertainty flag', 'Hold for the CFO', 'Route to purchase head']
+  };
+  const idx = c => 'ABCD'.indexOf(c);
+
+  function renderVerdicts(m) {
+    const box = $('verdicts'); box.replaceChildren();
+    $('dec-eyebrow').textContent = `${pol[S.policy].label} · ${D.scenarios[S.exScenario].label} · seed ${S.exSeed}`;
+    ['purchase', 'production', 'release'].forEach((k, j) => {
+      const c = document.createElement('div'); c.className = 'vcell';
+      const got = m.dec ? m.dec[j] : null;
+      const v = m.vv ? m.vv[k] : 'failed';
+      const perm = m.perm ? m.perm[k].map(x => `${x} ${OPT[k][idx(x)]}`).join('; ') : '–';
+      c.innerHTML = `<span class="eyebrow">${k}</span><span class="opt">${got ? esc(`${got} · ${OPT[k][idx(got)]}`) : 'No decision'}</span><span class="pill ${v}">${VERD[v][0]} ${VERD[v][1]}</span><span class="muted small">Permitted: ${esc(perm)}</span>`;
+      box.appendChild(c);
+    });
+    const meta = [];
+    if (m.model) meta.push(`model ${m.model}`);
+    if (m.ms != null) meta.push(`time ${fmtMs(m.ms)}`);
+    if (m.tok != null) meta.push(`${m.tok.toLocaleString()} input tokens`);
+    if (m.reasonTok != null) meta.push(`${m.reasonTok} reasoning tokens`);
+    if (m.usd != null) meta.push(`cost ${fmtUsd(m.usd)}`);
+    meta.push(`spent ₹${m.spent} lakh`, `short days after ${m.short}`, `projected shortfall ${m.gap ? m.gap.tonnes : '–'} t`);
+    if (m.err) meta.push(`error: ${m.err}`);
+    $('dec-meta').innerHTML = meta.map(x => `<span>${esc(x)}</span>`).join('');
+  }
+
+  // ---------- schematic ----------
+  function renderInside(m) {
+    const box = $('inside'); box.replaceChildren();
+    const circuit = D.circuits[S.policy];
+    if (S.policy === 'llm') {
+      box.innerHTML = `<p class="eyebrow">Inside · one prompt with the full evidence and the three option lists</p><pre class="reply"></pre>`;
+      box.querySelector('pre').textContent = m.reply ?? (m.err ? `No reply recorded: ${m.err}` : 'No reply recorded.');
+      return;
+    }
+    if (!circuit) {
+      box.innerHTML = `<p class="eyebrow">Inside · fixed rule, no model</p><p class="muted">${S.policy === 'do_nothing' ? 'Always: buy nothing, keep the plan, release to the purchase manager.' : 'Spot-buy 60 t when cold-store QC life or usable cover falls under 10 days and nothing is on order. Otherwise buy nothing. Always keep the plan and release.'}</p>`;
+      return;
+    }
+    const gates = circuit.gates;
+    const byStage = [1, 2, 3, 4, 5].map(s => gates.filter(g => g.stage === s));
+    const rows = Math.max(...byStage.map(g => g.length));
+    const GW = 132, GH = 34, colW = 178, top = 40, rowH = 46;
+    const H = top + rows * rowH + 20, W = 40 + 5 * colW + 60;
+    const wrap = document.createElement('div'); wrap.className = 'scroll';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('id', 'schem'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `${circuit.gates.length}-gate circuit ${circuit.version} with the answers recorded on this morning`);
+    wrap.appendChild(svg); box.appendChild(Object.assign(document.createElement('p'), { className: 'eyebrow', textContent: `Inside · circuit ${circuit.version} · recorded answers for this morning · select a gate` }));
+    box.appendChild(wrap);
+    const pos = {};
+    byStage.forEach((gs, s) => {
+      const x = 40 + s * colW;
+      el('text', { x: x + GW / 2, y: 18, 'text-anchor': 'middle', class: 't head' }, svg, `STAGE ${s + 1}`);
+      if (s > 0) el('rect', { x: x - 26, y: top - 8, width: 8, height: rows * rowH, rx: 2, class: 'reg' }, svg);
+      const off = (rows - gs.length) * rowH / 2;
+      gs.forEach((g, i) => { pos[g.id] = { x, y: top + off + i * rowH }; });
+    });
+    const fieldOwner = Object.fromEntries(gates.map(g => [g.field, g.id]));
+    const sel = S.gate && pos[S.gate] ? S.gate : 'J14';
+    const links = el('g', {}, svg);
+    for (const r of gates.find(g => g.id === sel).reads) {
+      const src = fieldOwner[r]; if (!src) continue;
+      const a = pos[src], b = pos[sel];
+      const x1 = a.x + GW, y1 = a.y + GH / 2, x2 = b.x, y2 = b.y + GH / 2, mx = (x1 + x2) / 2;
+      el('path', { d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`, class: 'link-in' }, links);
+    }
+    for (const g of gates) {
+      const { x, y } = pos[g.id];
+      const grp = el('g', { class: 'gate' + (g.type === 'compute' ? ' compute' : '') + (g.id === sel ? ' sel' : '') + (['J14', 'J15', 'J20'].includes(g.id) ? ' out' : ''), tabindex: 0, role: 'button', 'aria-label': `${g.id} ${g.field}` }, svg);
+      if (g.type === 'noul') el('path', { d: `M ${x} ${y} h ${GW - 17} a 17 17 0 0 1 0 ${GH} h ${-(GW - 17)} z`, class: 'body' }, grp);
+      else if (g.type === 'choice') el('path', { d: `M ${x} ${y - 5} L ${x + GW} ${y + 4} L ${x + GW} ${y + GH - 4} L ${x} ${y + GH + 5} z`, class: 'body' }, grp);
+      else el('rect', { x, y, width: GW, height: GH, rx: g.type === 'compute' ? 4 : 0, class: 'body' }, grp);
+      el('text', { x: x + 8, y: y + 14, class: 't' }, grp, `${g.id}${g.type === 'compute' ? ' ƒ' : ''}`);
+      el('text', { x: x + 8, y: y + 27, class: 't small' }, grp, g.field.split('.').pop().slice(0, 20));
+      const a = m.ans?.[g.id];
+      let val = '';
+      if (g.type === 'noul' && typeof a === 'number') val = a.toFixed(2);
+      if (g.type === 'score' && Array.isArray(a)) { const k = a.indexOf(Math.max(...a)); val = `L${k} ${a[k].toFixed(2)}`; }
+      if (g.type === 'choice' && a) val = `${a.c} ${a.p[idx(a.c)].toFixed(2)}`;
+      if (g.type === 'compute' && m.comp?.[g.id]) val = 'ƒ';
+      if (val) el('text', { x: x + GW - 6, y: y + 14, 'text-anchor': 'end', class: 't val' }, grp, val);
+      const pick = () => { S.gate = g.id; renderInside(m); };
+      grp.addEventListener('click', pick);
+      grp.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+    }
+    // gate detail
+    const g = gates.find(x => x.id === sel), a = m.ans?.[g.id];
+    const d = document.createElement('div'); d.className = 'stack';
+    d.innerHTML = `<p class="eyebrow">${esc(g.id)} · ${esc(g.type)} · stage ${g.stage} · answer field ${esc(g.field)}</p><p class="qbox">${code(g.instructions)}</p>`;
+    const dist = document.createElement('div'); dist.className = 'dist';
+    const addRow = (k, text, p, top) => { const r = document.createElement('div'); r.className = 'drow' + (top ? ' top' : ''); r.innerHTML = `<span class="k">${esc(k)}</span><span>${code(text)}</span><span class="bar"><span style="width:${p == null ? 0 : p * 100}%"></span></span><span class="p">${p == null ? '–' : p.toFixed(2)}</span>`; dist.appendChild(r); };
+    if (g.type === 'compute') {
+      const c = m.comp?.[g.id];
+      const p = document.createElement('p'); p.className = 'qbox'; p.textContent = c ? c.summary : 'Not computed on this morning.'; d.appendChild(p);
+    } else if (g.type === 'noul') { addRow('Yes', g.criteria.yes, a, a >= 0.5); addRow('No', g.criteria.no, a == null ? null : 1 - a, a < 0.5); }
+    else if (g.type === 'score') { const top = Array.isArray(a) ? a.indexOf(Math.max(...a)) : -1; g.criteria.forEach((c, k) => addRow(`L${k}`, c, Array.isArray(a) ? a[k] : null, k === top)); }
+    else g.criteria.forEach(c => addRow(c.id, c.text, a ? a.p[idx(c.id)] : null, a && a.c === c.id));
+    if (g.type !== 'compute') d.appendChild(dist);
+    if (!a && g.type !== 'compute') d.appendChild(Object.assign(document.createElement('p'), { className: 'muted small', textContent: m.err ? `No answer: ${m.err}` : 'No answer recorded for this gate on this morning.' }));
+    box.appendChild(d);
+  }
+
+  function renderExplorer() {
+    renderDays();
+    const r = run(); if (!r) return;
+    const m = r.mornings[S.morning];
+    renderEvidence(m); renderVerdicts(m); renderInside(m);
+  }
+
+  function renderAll() { syncScen(); syncSeed(); renderScoreboard(); renderCost(); renderExplorer(); }
+
+  // ---------- findings & method: wording is fixed, every number comes from the data ----------
+  function allStats(pid) { const keep = [S.scenario, S.seed]; S.scenario = 'all'; S.seed = 'all'; const r = stats(pid); [S.scenario, S.seed] = keep; return r; }
+  function wrongBy(pid) {
+    const c = { purchase: 0, production: 0, release: 0 };
+    for (const run of Object.values(D.runs[pid] || {})) for (const m of run.mornings) if (m.vv) for (const k in c) if (m.vv[k] === 'wrong') c[k]++;
+    return c;
+  }
+  function renderFindings() {
+    const has = id => !!D.runs[id];
+    const f = [];
+    const st = Object.fromEntries(D.policies.map(p => [p.id, allStats(p.id)]));
+    if (has('v1.0')) f.push(`<b>Pure Jev v1.0 over-buys.</b> ${st['v1.0'].wrong} of ${st['v1.0'].n} mornings wrong and ${inr(st['v1.0'].spend)} lakh of recommended purchases. Its supply-gap gate asks Jev to compare dates and tonnages, which TypeSafe's notes on jev-1.13 list as a weakness, and the gate often puts most of its probability on a long shortage when none is coming.`);
+    if (has('v1.2')) f.push(`<b>Pure Jev v1.2 stops over-buying but misses the real shortage.</b> ${st['v1.2'].wrong} wrong, all of them in the rain shock, and ${st['v1.2'].short} short production days before Diwali: as many as doing nothing (${st.do_nothing?.short ?? '–'}). With only text to go on, the circuit cannot tell whether a purchase covers a gap that starts two weeks later.`);
+    if (has('v2.1')) { const w = wrongBy('v2.1'); f.push(`<b>The hybrid v2.1 is the most accurate policy tested.</b> ${st['v2.1'].correct} correct, ${st['v2.1'].safe} safe, ${st['v2.1'].wrong} wrong of ${st['v2.1'].n}. Wrong calls by output: purchase ${w.purchase}, production ${w.production}, release ${w.release}. Most of its "safe" mornings release without flagging the agent's unsupported claims. Its three code gates do the date window, the shortage arithmetic and the spend check; every reading of text is still Jev.`); }
+    if (has('llm')) { const l = st.llm, j = st['v2.1']; f.push(`<b>GPT-6 Sol, given the same evidence in one prompt</b>: ${l.correct} correct, ${l.safe} safe, ${l.wrong} wrong, ${l.failed} failed. It routes ${(l.manualShare * 100).toFixed(0)}% of mornings to a person or fails, against ${(j.manualShare * 100).toFixed(0)}% for v2.1. Per morning it costs ${fmtUsd(l.usdPerMorning)} against ${fmtUsd(j.usdPerMorning)} and takes ${fmtMs(l.medianMs)} against ${fmtMs(j.medianMs)}.`); }
+    if (has('reorder_rule')) f.push(`<b>Rules without reading.</b> Doing nothing leaves ${st.do_nothing.short} short production days in the rain shock. The fixed reorder rule avoids them but recommends ${inr(st.reorder_rule.spend)} lakh of spot lots, against ${inr(st['v2.1']?.spend ?? 0)} lakh for v2.1.`);
+    $('findings').innerHTML = f.map(x => `<li>${x}</li>`).join('');
+
+    const m = D.manifests['v2.1'] || Object.values(D.manifests)[0] || {};
+    const prices = m.prices || {};
+    const method = [
+      `Scenarios and seeds are synthetic. Festival dates (Navratri 11–19 Oct, Diwali 8 Nov 2026) and the onion seasons are real; every price, message, report and company is invented. Scenario version ${esc(D.scenarioVersion)} states the purchase-size rule in the policy every policy reads; version 1.0.0 runs, which lacked it, stay in the repository.`,
+      `The rulebook sets the permitted outcomes for each morning from facts visible that morning and the written policy, before any provider run. "Safe" is an unnecessary flag or escalation. It is provisional evaluation policy, not a company's approved policy.`,
+      `Each season is a closed loop: a recommendation released to the purchase manager is assumed to be carried out, so later mornings see its stock. Held, routed and failed mornings change nothing.`,
+      `The v2.x code gates reuse the rulebook's shortage arithmetic, and v2.1 also applies policy clause (f) in code. Its purchase choices are therefore partly checked against the same rule they were given. The choice among permitted options is Jev's.`,
+      `Each morning was run once per policy; repeat sampling was not measured. The LLM prompt was written once and not tuned. Jev ran as ${esc(m.models?.jev || 'jev-1.13.0')} with questions sent as instructions and criteria.`,
+      `Prices, checked 24 September 2026: Jev 1.13 at $${prices['jev-1.13.0']?.inputPerM ?? '0.042'} per million input tokens with output free (docs.typesafe.ai/models); openai/gpt-6-sol at $${prices['openai/gpt-6-sol']?.inputPerM ?? 2} / $${prices['openai/gpt-6-sol']?.outputPerM ?? 10} per million prompt / completion tokens (OpenRouter). LLM cost per call is OpenRouter's reported cost.`,
+      `Code, circuits, rulebook and every recorded answer: <a href="https://github.com/capabl-machines/decision-circuit-engineering/tree/claude/friendly-cannon-o2ols8/examples/kanda-desk">examples/kanda-desk</a> on branch claude/friendly-cannon-o2ols8.`
+    ];
+    $('method').innerHTML = method.map(x => `<li>${x}</li>`).join('');
+  }
+
+  window.__kd = { D, stats, S };
+  renderAll();
+  renderFindings();
+  document.dispatchEvent(new CustomEvent('kd-ready'));
+})();
+</script>

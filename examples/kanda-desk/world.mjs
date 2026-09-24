@@ -4,6 +4,10 @@
 // The circuit reads composeMorning(...).state; the rulebook reads composeMorning(...).facts.
 // Hidden truth (actual kharif start, strike outcome) never enters state or facts.
 
+// Scenario version. 1.0.0 policy text omitted the purchase-size rule the rulebook applied;
+// 1.1.0 states it as clause (f). Runs record the version they used.
+export const SCENARIO_VERSION = '1.1.0';
+
 export const MORNINGS = [
   '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10',
   '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17',
@@ -31,6 +35,8 @@ export const CONST = {
   spotLossPct: 12,
   flakeTonnes: 8,
   limitLakh: 25,
+  spotMinRemovedT: 15,       // policy (f): a spot lot must remove at least this much projected shortfall
+  flakesMinRemovedT: 5,      // policy (f): an order of flakes must remove at least this much
   penaltyPerDay: 50000,
   pauseFactor: 0.8,          // pausing low-margin modern-trade SKUs removes about a fifth of onion use
   kharifUsual: '2026-10-15',
@@ -206,7 +212,7 @@ function stockLimitText(p, i) {
 }
 
 export const PRODUCTION_PLAN = 'Onion use 6 t per production day, Monday to Saturday. Makhani gravy and pav bhaji base take about half of it. QSR customers run no onion-garlic Navratri menus 11–19 Oct, so onion gravy orders for those days are down about 40%. Diwali gravy and snack orders peak in the two weeks before Lakshmi Puja on Sun 8 Nov. Key QSR contract: ₹50,000 penalty per day of short supply.';
-export const POLICY = '(a) The purchase manager may approve up to ₹25 lakh per purchase decision; above that needs the CFO. (b) Dehydrated onion may be used only in recipes that passed the sensory trial: makhani gravy and pav bhaji base (two of five gravies). (c) Total onion held must stay within any stock limit in force. (d) QSR penalty orders are produced before modern-trade orders. (e) Recommendations only: never place orders, pay agents or contact customers.';
+export const POLICY = '(a) The purchase manager may approve up to ₹25 lakh per purchase decision; above that needs the CFO. (b) Dehydrated onion may be used only in recipes that passed the sensory trial: makhani gravy and pav bhaji base (two of five gravies). (c) Total onion held must stay within any stock limit in force. (d) QSR penalty orders are produced before modern-trade orders. (e) Recommendations only: never place orders, pay agents or contact customers. (f) Buy a 60 t spot lot only if it removes at least 15 t of the shortfall projected before new kharif onion arrives; order 8 t of flakes only if they remove at least 5 t. Otherwise buy nothing.';
 
 export function initialStock(p) {
   return { coldGross: p.coldGross0, spotLots: [], flakes: 0, orders: [], spendLakh: 0, shortDays: 0, penaltyRs: 0, lastProduction: 'A' };

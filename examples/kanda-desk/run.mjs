@@ -5,7 +5,7 @@
 //
 // Options: --policies jev,llm,baselines  --scenarios normal,rain_shock,...  --seeds 1,2,3
 //          --circuit circuit.json|circuit-v1.1.json|circuit-v2.json
-//          --jev-model jev-1.13.0  --llm-model openai/gpt-6-sol  --max-usd <cap>  --mornings <n>  --dry-run
+//          --concurrency <seasons at once>  --jev-model jev-1.13.0  --llm-model openai/gpt-6-sol  --max-usd <cap>  --mornings <n>  --dry-run
 // Keys: TYPESAFE_API_KEY and OPENROUTER_API_KEY from the environment.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { SCENARIOS, SEEDS } from './world.mjs';
+import { SCENARIOS, SEEDS, SCENARIO_VERSION } from './world.mjs';
 import { runSeason, doNothing, reorderRule } from './season.mjs';
 import { callJev, callOpenRouter, toQuestion, validateAnswer } from './providers.mjs';
 import { OPERATIONS, erpFrom } from './compute.mjs';
@@ -40,6 +40,7 @@ const llmModel = args['llm-model'] || 'openai/gpt-6-sol';
 const maxUsd = Number(args['max-usd'] || 10);
 const outDir = args.out ? resolve(String(args.out)) : null;
 const morningLimit = args.mornings ? Number(args.mornings) : undefined;
+const concurrency = Number(args.concurrency || 12);
 const circuitFile = String(args.circuit || 'circuit.json');
 const circuitText = readFileSync(resolve(here, circuitFile), 'utf8');
 const circuit = JSON.parse(circuitText);
@@ -168,7 +169,13 @@ const started = new Date();
 const results = {};
 for (const name of selected) {
   const decide = POLICIES[name]();
-  const runs = await Promise.all(scenarios.flatMap(sc => seeds.map(seed => runSeason(sc, seed, decide, morningLimit ? { mornings: morningLimit } : {}))));
+  // Seasons are independent closed loops; run up to --concurrency of them at a time.
+  const jobs = scenarios.flatMap(sc => seeds.map(seed => () => runSeason(sc, seed, decide, morningLimit ? { mornings: morningLimit } : {})));
+  const runs = new Array(jobs.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, async () => {
+    while (next < jobs.length) { const i = next++; runs[i] = await jobs[i](); }
+  }));
   results[name] = runs;
   const t = runs.reduce((a, r) => { for (const k of Object.keys(r.totals)) a[k] = round((a[k] || 0) + r.totals[k], 1); return a; }, {});
   console.log(name.padEnd(13), JSON.stringify(t));
@@ -196,7 +203,7 @@ if (outDir && !dryRun) {
   }
   writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({
     started: started.toISOString(), finished: new Date().toISOString(), commit, circuit: { file: circuitFile, name: circuit.name, version: circuit.version, sha256: circuitHash },
-    policies: selected, scenarios, seeds, mornings: morningLimit ?? null, models: { jev: jevModel, llm: llmModel }, prices: PRICES, spentUsd: round(spentUsd, 4), maxUsd
+    scenarioVersion: SCENARIO_VERSION, policies: selected, scenarios, seeds, mornings: morningLimit ?? null, models: { jev: jevModel, llm: llmModel }, prices: PRICES, spentUsd: round(spentUsd, 4), maxUsd
   }, null, 1));
   console.log(`\nWrote ${outDir}  spent ~$${spentUsd.toFixed(4)}`);
 }
