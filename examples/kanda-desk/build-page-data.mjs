@@ -66,6 +66,7 @@ for (const [id, label, sub, folder, circuitFile] of POLICIES) {
         if (x.stages) {
           out.ans = {}; out.comp = {};
           out.ms = x.stages.reduce((a, s) => a + (s.latencyMs || 0), 0);
+          out.stageMs = x.stages.map(s => s.latencyMs || 0);
           out.usd = x.stages.reduce((a, s) => a + (s.costUsd || 0), 0);
           out.tok = x.stages.reduce((a, s) => a + (s.usage?.input_tokens || 0), 0);
           out.model = x.stages.find(s => s.model)?.model;

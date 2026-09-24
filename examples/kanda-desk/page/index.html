@@ -144,7 +144,67 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80
 #tip { position: fixed; pointer-events: none; z-index: 20; background: var(--ink); color: var(--bg); font: 12px/1.4 var(--sans); padding: 7px 9px; border-radius: 3px; max-width: 280px; }
 #tip b { font: 600 13px var(--mono); }
 #loading { padding: 40px 0; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* race */
+.race { display: grid; gap: 16px; }
+.race-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; align-items: end; }
+.moments { display: flex; flex-wrap: wrap; gap: 6px; }
+.moments button { font: 500 12.5px/1.2 var(--sans); padding: 8px 11px; border-radius: 16px; border: 1px solid var(--line); background: var(--gate); color: var(--ink); cursor: pointer; }
+.moments button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.moments button.honest { border-style: dashed; }
+.ev-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 900px) { .ev-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ev { border: 1px solid var(--line); border-radius: 4px; background: var(--gate); padding: 10px 11px; display: grid; gap: 4px; align-content: start; font-size: 12.5px; line-height: 1.4; transition: transform .35s ease, box-shadow .35s ease; }
+.ev .src { font: 600 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ev.sent { transform: translateY(6px); box-shadow: 0 -3px 0 var(--trace) inset; }
+.clockrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.clock { font: 600 34px/1 var(--mono); font-variant-numeric: tabular-nums; min-width: 6.5ch; }
+.play { font: 600 14px/1 var(--sans); padding: 10px 16px; border-radius: 20px; border: 0; background: var(--trace); color: var(--bg); cursor: pointer; }
+.play:hover { filter: brightness(1.08); }
+.lanes { display: grid; gap: 10px; }
+.lane { display: grid; grid-template-columns: 170px minmax(0, 1fr) 250px; gap: 16px; align-items: center; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 14px 16px; position: relative; overflow: hidden; }
+@media (max-width: 900px) { .lane { grid-template-columns: 1fr; } }
+.lane::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--lane); }
+.lane[data-lane="jev"] { --lane: var(--trace); } .lane[data-lane="llm"] { --lane: var(--hot); } .lane[data-lane="person"] { --lane: var(--faint); }
+.lane-id b { display: block; font: 600 16px var(--cond); }
+.lane-id span { font-size: 12.5px; color: var(--muted); }
+.lane-track { display: grid; gap: 8px; min-width: 0; }
+.prog { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.prog span { display: block; height: 100%; width: 0; background: var(--lane); }
+.lane-stat { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.lane-out { display: grid; gap: 3px; font-size: 13px; opacity: .25; transition: opacity .4s ease; }
+.lane-out.done { opacity: 1; }
+.lane-out .main { font-weight: 600; font-size: 14.5px; }
+.chips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; align-items: stretch; }
+.chipst { position: relative; border: 1.5px solid var(--line); border-radius: 4px; padding: 6px 7px; background: var(--gate); display: grid; gap: 5px; margin-right: 14px; transition: border-color .15s, box-shadow .15s; }
+.chipst:last-child { margin-right: 0; }
+.chipst:not(:last-child)::after { content: ""; position: absolute; right: -15px; top: 50%; width: 14px; height: 2px; background: var(--line); }
+.chipst.firing { border-color: var(--trace); box-shadow: 0 0 0 3px color-mix(in srgb, var(--trace) 25%, transparent); }
+.chipst.done { border-color: var(--trace); }
+.chipst.done:not(:last-child)::after { background: var(--trace); }
+.chipst .nm { font: 600 10.5px/1.25 var(--mono); color: var(--muted); }
+.dots { display: flex; flex-wrap: wrap; gap: 3px; }
+.dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); transition: background .12s; }
+.dots i.code { border-radius: 2px; }
+.dots i.on { background: var(--trace); }
+.dots i.code.on { background: var(--ink); }
+.llmbox { border: 1.5px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--gate); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.llmbox.thinking { border-color: var(--hot); background: linear-gradient(90deg, var(--gate) 0%, var(--hot-soft) 50%, var(--gate) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.inbox { display: flex; gap: 4px; }
+.inbox i { width: 16px; height: 11px; border-radius: 2px; border: 1.5px solid var(--faint); display: block; }
+.inbox i.read { background: var(--faint); }
+.slow { font: 500 12px var(--mono); background: none; border: 0; color: var(--trace); cursor: pointer; padding: 0; text-decoration: underline; }
+#axis { display: block; width: 100%; height: auto; color: var(--ink); }
+.ax { stroke: var(--line); } .axt { fill: var(--muted); font: 11px var(--mono); }
+.happened { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .happened { grid-template-columns: 1fr; } }
+.hap { border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 16px; display: grid; gap: 10px; align-content: start; }
+.hap .n { font: 600 12px var(--mono); color: var(--trace); }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; font-size: 13.5px; }
+.qa b { font: 600 13px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.divider { border: 0; border-top: 1px solid var(--line); margin: 8px 0 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
 <div class="wrap">
@@ -152,9 +212,47 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80
 <header class="stack">
   <p class="eyebrow">Recorded live runs · 24 September 2026 · jev-1.13.0 · openai/gpt-6-sol</p>
   <h1>Kanda Desk</h1>
-  <p class="lede">Every morning at 07:00 a Pune gravy maker has to decide whether to buy onion, change production, or wait. The evidence arrives as a Lasalgaon APMC report, a commission agent's WhatsApp, an IMD alert, a Marathi news item and a cold-store QC note. This page replays 192 mornings per policy: four scenarios, three seeds, sixteen mornings each, run through five circuit versions, one large LLM and two fixed rules. Every answer shown was recorded from the provider. Nothing is hand-written.</p>
-  <div class="badges" id="badges"></div>
+  <p class="lede">Every morning at 7, a Pune gravy maker must decide: buy onion now, change what the kitchen makes, or wait. The clues come in five messages. Watch one real morning decided three ways: by a circuit of tiny AI questions, by a large AI model, and by a person.</p>
 </header>
+
+<section class="race" aria-labelledby="race-title">
+  <div class="race-head">
+    <div class="stack" style="gap:6px"><p class="eyebrow">Replay of a recorded morning · real timings · pick a morning</p><h2 id="race-title">One morning, three ways to decide</h2></div>
+    <div class="moments" id="moments" role="group" aria-label="Pick a morning"></div>
+  </div>
+  <div class="ev-strip" id="ev-strip" aria-label="The five messages that arrived this morning"></div>
+  <div class="clockrow">
+    <span class="clock" id="clock" aria-live="off">0.00 s</span>
+    <button type="button" class="play" id="race-play">▶ Replay this morning</button>
+    <span class="muted small" id="race-caption"></span>
+  </div>
+  <div class="lanes">
+    <div class="lane" data-lane="jev">
+      <div class="lane-id"><b>Decision circuit</b><span>20 small Jev questions and code steps, in 5 rounds</span></div>
+      <div class="lane-track"><div class="chips" id="chips"></div><div class="prog"><span id="prog-jev"></span></div><div class="lane-stat" id="stat-jev"></div></div>
+      <div class="lane-out" id="out-jev"></div>
+    </div>
+    <div class="lane" data-lane="llm">
+      <div class="lane-id"><b>Large AI model</b><span>GPT-6 Sol reads all five messages in one prompt</span></div>
+      <div class="lane-track"><div class="llmbox" id="llmbox"></div><div class="prog"><span id="prog-llm"></span></div><div class="lane-stat" id="stat-llm"></div></div>
+      <div class="lane-out" id="out-llm"></div>
+    </div>
+    <div class="lane" data-lane="person">
+      <div class="lane-id"><b>Purchase manager</b><span>Reads every message and decides by hand</span></div>
+      <div class="lane-track"><div class="llmbox" id="personbox"></div><div class="prog"><span id="prog-person"></span></div><div class="lane-stat" id="stat-person"></div></div>
+      <div class="lane-out" id="out-person"></div>
+    </div>
+  </div>
+  <figure style="margin:0" class="stack">
+    <svg id="axis" viewBox="0 0 1000 74" role="img" aria-label="Time to decide on a log scale: circuit, AI model and person"></svg>
+    <figcaption class="muted small">Time to a decision, on a log scale. The circuit and the AI model are this morning's recorded times. The person's time is your estimate, set in "What the daily decision costs" below.</figcaption>
+  </figure>
+  <div class="happened" id="happened"></div>
+  <div class="badges" id="badges"></div>
+</section>
+
+<hr class="divider">
+<div class="stack" style="gap:6px"><p class="eyebrow">For the curious · all 192 mornings, every policy</p><h2>The evidence behind it</h2><p class="muted" style="max-width:76ch">Four scenarios, three seeds, sixteen mornings each, run through five circuit versions, one large LLM and two fixed rules. Every answer below was recorded from the provider; nothing is hand-written.</p></div>
 
 <div class="filters" role="group" aria-label="Filters for the scoreboard and cost">
   <div class="seg" id="f-scenario"><span>Scenario</span></div>
@@ -542,6 +640,198 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80
   }
 
   function renderAll() { syncScen(); syncSeed(); renderScoreboard(); renderCost(); renderExplorer(); }
+
+  // ---------- the race: replay of one recorded morning at recorded timings ----------
+  const RACE_POLICY = 'v2.1';
+  const MOMENTS = [
+    { label: 'Rain hits', key: 'rain_shock-2', i: 4 },
+    { label: 'Agent says the strike is on', key: 'strike_fizzle-1', i: 3 },
+    { label: 'Agent tries to instruct the software', key: 'manipulative_agent-1', i: 5 },
+    { label: 'A quiet morning', key: 'normal-1', i: 2 },
+    { label: 'A morning the circuit got wrong', key: 'rain_shock-1', i: 5, honest: true },
+    { label: 'Random morning', random: true, honest: true }
+  ];
+  const STAGE_NAMES = ['Read the clues', 'Size the gap', 'Choose', 'Check the rules', 'Who should see it'];
+  const PLAIN = {
+    purchase: { A: 'Buy nothing today', B: 'Buy the 60 t spot lot', C: 'Order 8 t of dried onion flakes', D: 'Ask the purchase head' },
+    production: { A: 'Keep the production plan', B: 'Run no-onion Navratri lines', C: 'Pause low-margin products', D: 'Ask the plant head' },
+    release: { A: 'Sent straight to the manager', B: 'Sent to the manager with a warning', C: 'Held for the CFO', D: 'Handed to a person to decide' }
+  };
+  const R = { key: MOMENTS[0].key, i: MOMENTS[0].i, moment: 0, raf: 0, playing: false };
+  const num = id => Math.max(0, Number($(id)?.value) || 0);
+  const secs = ms => ms < 10000 ? `${(ms / 1000).toFixed(2)} s` : ms < 60000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.floor(ms / 60000)} min ${String(Math.floor(ms / 1000) % 60).padStart(2, '0')} s`;
+  const rupees = x => x < 1 ? `₹${x.toFixed(2)}` : x < 100 ? `₹${x.toFixed(1)}` : inr(x);
+  const excerpt = (text, n = 150) => {
+    const s = String(text || ''), q = s.match(/"([^"]+)"/);
+    let t = q && s.startsWith('WhatsApp') ? q[1] : s.replace(/^[^:]{0,80}\(translated\):\s*/, '').replace(/^[^:"]{0,90}:\s*/, '');
+    return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t;
+  };
+
+  function raceData() {
+    const jev = D.runs[RACE_POLICY][R.key].mornings[R.i];
+    const llm = D.runs.llm[R.key].mornings[R.i];
+    const ev = D.evidence[R.key][R.i];
+    return { jev, llm, ev, circuit: D.circuits[RACE_POLICY], manualMs: num('in-manual') * 60000, fx: num('in-fx'), rate: num('in-rate') };
+  }
+
+  function buildMoments() {
+    const host = $('moments'); host.replaceChildren();
+    MOMENTS.forEach((m, k) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = m.label;
+      if (m.honest) b.className = 'honest';
+      b.setAttribute('aria-pressed', String(k === R.moment));
+      b.addEventListener('click', () => {
+        if (m.random) { const keys = Object.keys(D.runs[RACE_POLICY]); R.key = keys[Math.floor(Math.random() * keys.length)]; R.i = Math.floor(Math.random() * D.mornings.length); }
+        else { R.key = m.key; R.i = m.i; }
+        R.moment = k; buildMoments(); play();
+      });
+      host.appendChild(b);
+    });
+  }
+
+  function buildStatic() {
+    const { jev, llm, ev, circuit } = raceData();
+    const [scen, seed] = [R.key.replace(/-\d+$/, ''), R.key.split('-').pop()];
+    $('race-caption').textContent = `${dayLabel(D.mornings[R.i])} 2026 · ${D.scenarios[scen].label}, seed ${seed} · circuit ${circuit.version} vs ${llm.model || 'openai/gpt-6-sol'}`;
+    const cards = [['Mandi report', ev.apmc.lasalgaon_report], ['Agent on WhatsApp', ev.agent.whatsapp], ['Weather alert', ev.imd.nashik_alert], ['Local news', ev.news.regional], ['Cold store', jev.cold]];
+    $('ev-strip').replaceChildren(...cards.map(([src, text]) => { const d = document.createElement('div'); d.className = 'ev'; d.innerHTML = `<span class="src"></span><span></span>`; d.children[0].textContent = src; d.children[1].textContent = excerpt(text); return d; }));
+    const chips = $('chips'); chips.replaceChildren();
+    [1, 2, 3, 4, 5].forEach((st, k) => {
+      const gs = circuit.gates.filter(g => g.stage === st);
+      const c = document.createElement('div'); c.className = 'chipst'; c.dataset.stage = st;
+      c.innerHTML = `<span class="nm"></span><span class="dots"></span>`;
+      c.querySelector('.nm').textContent = `${k + 1} · ${STAGE_NAMES[k]}`;
+      const dots = c.querySelector('.dots');
+      for (const g of gs) { const i = document.createElement('i'); if (g.type === 'compute') i.className = 'code'; i.title = `${g.id}${g.type === 'compute' ? ' (code)' : ' (Jev)'}: ${g.field}`; dots.appendChild(i); }
+      chips.appendChild(c);
+    });
+    drawAxis(null);
+  }
+
+  function outHTML(m, costRs, ms) {
+    if (!m.dec) return `<span class="main">No decision</span><span class="muted">${esc(m.err || 'failed')}</span>`;
+    const [p, pr, r] = m.dec;
+    return `<span class="main">${esc(PLAIN.purchase[p])}</span><span>${esc(PLAIN.production[pr])}</span><span>${esc(PLAIN.release[r])}</span><span class="pill ${m.v}">${VERD[m.v][0]} ${VERD[m.v][1]}</span><span class="muted small">${esc(secs(ms))} · ${esc(rupees(costRs))}</span>`;
+  }
+
+  function frame(e, final) {
+    const d = raceData();
+    const stageMs = d.jev.stageMs || [d.jev.ms];
+    const jevTotal = stageMs.reduce((a, b) => a + b, 0);
+    const speed = R.slow || 1;
+    const ej = e / speed;
+    // circuit lane
+    let acc = 0;
+    document.querySelectorAll('#chips .chipst').forEach((c, k) => {
+      const start = acc, end = acc + (stageMs[k] || 0); acc = end;
+      const done = final || ej >= end, firing = !done && ej >= start;
+      c.classList.toggle('done', done); c.classList.toggle('firing', firing);
+      const dots = c.querySelectorAll('.dots i');
+      const lit = done ? dots.length : firing ? Math.ceil(dots.length * (ej - start) / Math.max(1, end - start)) : 0;
+      dots.forEach((i, n) => i.classList.toggle('on', n < lit));
+    });
+    const jevDone = final || ej >= jevTotal;
+    $('prog-jev').style.width = `${Math.min(100, (final ? 1 : ej / jevTotal) * 100)}%`;
+    const jevRs = (d.jev.usd || 0) * d.fx;
+    $('stat-jev').innerHTML = `<span>${jevDone ? 'done in ' + esc(secs(jevTotal)) : 'round ' + Math.min(5, 1 + [...document.querySelectorAll('#chips .done')].length) + ' of 5'}</span><span>${(d.jev.tok || 0).toLocaleString()} tokens read</span>${R.slow ? `<span>slow motion ×${R.slow}</span>` : jevDone && !R.playing ? '' : ''}`;
+    if (jevDone && !R.slow) $('stat-jev').insertAdjacentHTML('beforeend', `<button type="button" class="slow" id="slowmo">watch it in slow motion</button>`);
+    $('out-jev').innerHTML = outHTML(d.jev, jevRs, jevTotal);
+    $('out-jev').classList.toggle('done', jevDone);
+    // model lane
+    const other = final || R.slow;  // in slow motion only the circuit moves
+    const lf = other ? 1 : Math.min(1, e / d.llm.ms);
+    const llmDone = lf >= 1;
+    $('prog-llm').style.width = `${lf * 100}%`;
+    const box = $('llmbox');
+    box.classList.toggle('thinking', !llmDone && e > 0);
+    const eo = other ? d.llm.ms : e;
+    box.innerHTML = `<span class="inbox">${'<i class="read"></i>'.repeat(5)}</span><span>${llmDone ? 'Replied' : e > 0 ? 'Reading and thinking…' : 'Waiting'}</span><span class="mono">${Math.floor(lf * (d.llm.reasonTok || 0))} reasoning tokens</span>`;
+    const llmRs = (d.llm.usd || 0) * d.fx;
+    $('stat-llm').innerHTML = `<span>${llmDone ? 'done in ' + esc(secs(d.llm.ms)) : esc(secs(eo))}</span><span>${(d.llm.tok || 0).toLocaleString()} tokens read</span>`;
+    $('out-llm').innerHTML = outHTML(d.llm, llmRs, d.llm.ms);
+    $('out-llm').classList.toggle('done', llmDone);
+    // person lane: time and cost follow the viewer's estimate; no decision is recorded for a person
+    const pe = other ? d.llm.ms : e;
+    const pf = d.manualMs ? Math.min(1, pe / d.manualMs) : 0;
+    const read = Math.min(5, Math.floor(pf * 5));
+    $('prog-person').style.width = `${pf * 100}%`;
+    $('personbox').innerHTML = `<span class="inbox">${'<i class="read"></i>'.repeat(read)}${'<i></i>'.repeat(5 - read)}</span><span>${e > 0 || final ? `Reading message ${read + 1} of 5` : 'Waiting'}</span>`;
+    const left = Math.max(0, d.manualMs - pe);
+    $('stat-person').innerHTML = `<span>${esc(secs(pe))} in · about ${esc(secs(left))} to go</span><span>${esc(rupees(pe / 3600000 * d.rate))} so far</span>`;
+    $('out-person').innerHTML = `<span class="main">Still reading</span><span class="muted">About ${num('in-manual')} minutes a morning, ${esc(rupees(d.manualMs / 3600000 * d.rate))} of a manager's time (your estimate below). No decision is recorded for a person.</span>`;
+    $('out-person').classList.toggle('done', true);
+    // shared clock, axis and evidence
+    $('clock').textContent = R.slow ? `${secs(ej)} (slow motion ×${R.slow})` : secs(final ? d.llm.ms : e);
+    document.querySelectorAll('#ev-strip .ev').forEach((c, k) => c.classList.toggle('sent', !final && e > 0 && e < 900 + k * 60));
+    drawAxis(final ? null : R.slow ? ej : e);
+    const sm = $('slowmo'); if (sm) sm.addEventListener('click', () => play(12));
+  }
+
+  function drawAxis(now) {
+    const d = raceData();
+    const svg = $('axis'); svg.replaceChildren();
+    const lo = Math.log10(100), hi = Math.log10(3600000), X = ms => 30 + (Math.log10(Math.max(100, ms)) - lo) / (hi - lo) * 940;
+    el('line', { x1: 30, y1: 30, x2: 970, y2: 30, class: 'ax' }, svg);
+    for (const [ms, l] of [[100, '0.1 s'], [1000, '1 s'], [10000, '10 s'], [60000, '1 min'], [600000, '10 min'], [3600000, '1 h']]) {
+      el('line', { x1: X(ms), y1: 26, x2: X(ms), y2: 34, class: 'ax' }, svg);
+      el('text', { x: X(ms), y: 50, 'text-anchor': 'middle', class: 'axt' }, svg, l);
+    }
+    const jevT = (d.jev.stageMs || [d.jev.ms]).reduce((a, b) => a + b, 0);
+    const marks = [[jevT, 'var(--trace)', `circuit ${secs(jevT)}`], [d.llm.ms, 'var(--hot)', `AI model ${secs(d.llm.ms)}`], [d.manualMs, 'var(--faint)', `person ~${num('in-manual')} min`]];
+    marks.forEach(([ms, color, l], k) => {
+      if (!ms) return;
+      const reached = now == null || now >= ms;
+      el('circle', { cx: X(ms), cy: 30, r: 7, fill: reached ? color : 'none', stroke: color, 'stroke-width': 2 }, svg);
+      el('text', { x: X(ms), y: k === 1 ? 70 : 16, 'text-anchor': 'middle', class: 'axt', style: `fill:${color};font-weight:600` }, svg, l);
+    });
+    if (now != null) el('line', { x1: X(now), y1: 18, x2: X(now), y2: 42, stroke: 'currentColor', 'stroke-width': 2 }, svg);
+  }
+
+  function renderHappened() {
+    const { jev, llm, circuit } = raceData();
+    const a = jev.ans || {};
+    const lvl = (gid, arr) => { const g = circuit.gates.find(x => x.id === gid); if (!Array.isArray(arr)) return '–'; const k = arr.indexOf(Math.max(...arr)); return g.criteria[k].replace(/[.:].*$/, ''); };
+    const pct = x => typeof x === 'number' ? `${Math.round(x * 100)}% yes` : '–';
+    const qa = [
+      ['How late is the new crop?', lvl('J3', a.J3)],
+      ['Will the mandi really shut?', pct(a.J4)],
+      ['Do other sources back the agent?', pct(a.J5)],
+      ['Is someone trying to instruct the software?', pct(a.J10)]
+    ];
+    const proj = jev.comp?.C2?.summary || '';
+    const cards = [
+      ['1', 'It read the clues as tiny questions, all at once', `<div class="qa">${qa.map(([q, v]) => `<span>${esc(q)}</span><b>${esc(v)}</b>`).join('')}</div><span class="muted small">Eleven questions like these ran in parallel in the first round. Each answer is a probability, recorded from Jev.</span>`],
+      ['2', 'Code did the arithmetic', `<span>${esc(proj || 'No projection recorded.')}</span><span class="muted small">Dates, tonnes and the ₹25 lakh limit are computed, not guessed. Jev is weak at exactly this kind of maths.</span>`],
+      ['3', 'It decided who needs to see it', `<span>${jev.dec ? `${esc(PLAIN.purchase[jev.dec[0]])}. ${esc(PLAIN.release[jev.dec[2]])}.` : 'No decision.'}</span><span class="muted small">The large model, reading the same five messages: ${llm.dec ? `${esc(PLAIN.purchase[llm.dec[0]].toLowerCase())}, ${esc(PLAIN.release[llm.dec[2]].toLowerCase())}` : 'no decision'}, after ${esc(secs(llm.ms))}.</span>`]
+    ];
+    $('happened').innerHTML = cards.map(([n, h, body]) => `<div class="hap"><span class="n">${n}</span><h3>${esc(h)}</h3>${body}</div>`).join('');
+  }
+
+  function play(slow) {
+    cancelAnimationFrame(R.raf);
+    R.slow = slow || 0;
+    buildStatic(); renderHappened();
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { R.playing = false; frame(0, true); return; }
+    const d = raceData();
+    const jevT = (d.jev.stageMs || [d.jev.ms]).reduce((x, y) => x + y, 0);
+    const endAt = (R.slow ? jevT * R.slow : d.llm.ms) + 500;
+    const t0 = performance.now(); R.playing = true;
+    const loop = now => {
+      const e = Math.max(0, now - t0);
+      if (e >= endAt) { R.playing = false; R.slow = 0; frame(0, true); return; }
+      frame(e, false);
+      R.raf = requestAnimationFrame(loop);
+    };
+    R.raf = requestAnimationFrame(loop);
+  }
+  $('race-play').addEventListener('click', () => play());
+  for (const id of ['in-manual', 'in-rate', 'in-fx']) $(id).addEventListener('input', () => { if (!R.playing) frame(0, true); });
+
+  buildMoments(); buildStatic(); renderHappened(); frame(0, true);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) { io.disconnect(); setTimeout(() => play(), 700); } }, { threshold: 0.4 });
+    io.observe($('chips'));
+  }
 
   // ---------- findings & method: wording is fixed, every number comes from the data ----------
   function allStats(pid) { const keep = [S.scenario, S.seed]; S.scenario = 'all'; S.seed = 'all'; const r = stats(pid); [S.scenario, S.seed] = keep; return r; }

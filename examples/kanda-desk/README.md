@@ -24,7 +24,7 @@ Status: **five circuit versions, one LLM baseline and two fixed rules recorded l
 | `run.mjs` | Runs seasons against the providers and writes traces, usage, latency and cost to `runs/<name>/` |
 | `compute.mjs` | Compute gates for v2.x. They read stock records only; the shortage projection reuses the rulebook's arithmetic, and v2.1's variant also applies policy clause (f) |
 | `build-page-data.mjs` | Builds `page/data.json` from recorded runs |
-| `page/index.html` | The interactive page: scoreboard, yearly cost, season explorer with each morning's evidence and recorded gate answers |
+| `page/index.html` | The interactive page: a replay "race" of one recorded morning (circuit vs LLM vs a person, at recorded timings), then the scoreboard, yearly cost and season explorer with each morning's evidence and recorded gate answers |
 
 ## Scenarios
 
@@ -76,6 +76,12 @@ What the traces show:
 Caveats: synthetic scenarios; provisional rulebook; one run per morning, no repeat sampling; the LLM prompt was written once and not tuned; v2.x compute gates reuse the rulebook's shortage arithmetic, and v2.1 also applies policy clause (f) in code, so its purchase choices are partly checked against a rule they were given.
 
 Runs on scenario 1.0.0 (`runs/2026-09-24/`, `-v1.1/`, `-v2.0/`) are kept as the record of the first attempt. That scenario's policy text omitted the purchase-size rule the rulebook applied, and 41 of its LLM calls failed on OpenRouter credit.
+
+## View the page locally
+
+```sh
+npx serve examples/kanda-desk/page      # or any static file server; the page fetches data.json
+```
 
 ## Check
 
