@@ -115,7 +115,7 @@ tbody tr.pol.sel td { background: var(--hot-soft); }
 .pill.failed { background: color-mix(in srgb, var(--fail) 35%, transparent); }
 .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .scroll { overflow-x: auto; max-width: 100%; }
-#schem { display: block; min-width: 940px; width: 100%; height: auto; color: var(--ink); }
+#schem { display: block; min-width: 680px; width: 100%; height: auto; color: var(--ink); }
 .wire { stroke: var(--line); stroke-width: 1.2; fill: none; }
 .reg { fill: var(--reg); stroke: var(--line); }
 .t { fill: currentColor; font-family: var(--mono); font-size: 11px; }
@@ -473,8 +473,8 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80
     const gates = circuit.gates;
     const byStage = [1, 2, 3, 4, 5].map(s => gates.filter(g => g.stage === s));
     const rows = Math.max(...byStage.map(g => g.length));
-    const GW = 132, GH = 34, colW = 178, top = 40, rowH = 46;
-    const H = top + rows * rowH + 20, W = 40 + 5 * colW + 60;
+    const GW = 116, GH = 34, colW = 148, top = 40, rowH = 46;
+    const H = top + rows * rowH + 20, W = 20 + 4 * colW + GW + 16;
     const wrap = document.createElement('div'); wrap.className = 'scroll';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('id', 'schem'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('role', 'img');
@@ -483,7 +483,7 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80
     box.appendChild(wrap);
     const pos = {};
     byStage.forEach((gs, s) => {
-      const x = 40 + s * colW;
+      const x = 20 + s * colW;
       el('text', { x: x + GW / 2, y: 18, 'text-anchor': 'middle', class: 't head' }, svg, `STAGE ${s + 1}`);
       if (s > 0) el('rect', { x: x - 26, y: top - 8, width: 8, height: rows * rowH, rx: 2, class: 'reg' }, svg);
       const off = (rows - gs.length) * rowH / 2;
@@ -505,7 +505,7 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80
       else if (g.type === 'choice') el('path', { d: `M ${x} ${y - 5} L ${x + GW} ${y + 4} L ${x + GW} ${y + GH - 4} L ${x} ${y + GH + 5} z`, class: 'body' }, grp);
       else el('rect', { x, y, width: GW, height: GH, rx: g.type === 'compute' ? 4 : 0, class: 'body' }, grp);
       el('text', { x: x + 8, y: y + 14, class: 't' }, grp, `${g.id}${g.type === 'compute' ? ' ƒ' : ''}`);
-      el('text', { x: x + 8, y: y + 27, class: 't small' }, grp, g.field.split('.').pop().slice(0, 20));
+      el('text', { x: x + 8, y: y + 27, class: 't small' }, grp, g.field.split('.').pop().slice(0, 17));
       const a = m.ans?.[g.id];
       let val = '';
       if (g.type === 'noul' && typeof a === 'number') val = a.toFixed(2);
@@ -556,8 +556,8 @@ ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 80
     const st = Object.fromEntries(D.policies.map(p => [p.id, allStats(p.id)]));
     if (has('v1.0')) f.push(`<b>Pure Jev v1.0 over-buys.</b> ${st['v1.0'].wrong} of ${st['v1.0'].n} mornings wrong and ${inr(st['v1.0'].spend)} lakh of recommended purchases. Its supply-gap gate asks Jev to compare dates and tonnages, which TypeSafe's notes on jev-1.13 list as a weakness, and the gate often puts most of its probability on a long shortage when none is coming.`);
     if (has('v1.2')) f.push(`<b>Pure Jev v1.2 stops over-buying but misses the real shortage.</b> ${st['v1.2'].wrong} wrong, all of them in the rain shock, and ${st['v1.2'].short} short production days before Diwali: as many as doing nothing (${st.do_nothing?.short ?? '–'}). With only text to go on, the circuit cannot tell whether a purchase covers a gap that starts two weeks later.`);
-    if (has('v2.1')) { const w = wrongBy('v2.1'); f.push(`<b>The hybrid v2.1 is the most accurate policy tested.</b> ${st['v2.1'].correct} correct, ${st['v2.1'].safe} safe, ${st['v2.1'].wrong} wrong of ${st['v2.1'].n}. Wrong calls by output: purchase ${w.purchase}, production ${w.production}, release ${w.release}. Most of its "safe" mornings release without flagging the agent's unsupported claims. Its three code gates do the date window, the shortage arithmetic and the spend check; every reading of text is still Jev.`); }
-    if (has('llm')) { const l = st.llm, j = st['v2.1']; f.push(`<b>GPT-6 Sol, given the same evidence in one prompt</b>: ${l.correct} correct, ${l.safe} safe, ${l.wrong} wrong, ${l.failed} failed. It routes ${(l.manualShare * 100).toFixed(0)}% of mornings to a person or fails, against ${(j.manualShare * 100).toFixed(0)}% for v2.1. Per morning it costs ${fmtUsd(l.usdPerMorning)} against ${fmtUsd(j.usdPerMorning)} and takes ${fmtMs(l.medianMs)} against ${fmtMs(j.medianMs)}.`); }
+    if (has('v2.1')) { const w = wrongBy('v2.1'); f.push(`<b>Of the policies that decide on their own, the hybrid v2.1 makes the fewest wrong calls.</b> ${st['v2.1'].correct} correct, ${st['v2.1'].safe} safe, ${st['v2.1'].wrong} wrong of ${st['v2.1'].n}, with ${st['v2.1'].short} short production days and ${(st['v2.1'].manualShare * 100).toFixed(0)}% of mornings routed to a person. Wrong calls by output: purchase ${w.purchase}, production ${w.production}, release ${w.release}. Most of its "safe" mornings release without flagging the agent's unsupported claims. Its three code gates do the date window, the shortage arithmetic and the spend check; every reading of text is still Jev.`); }
+    if (has('llm')) { const l = st.llm, j = st['v2.1']; f.push(`<b>GPT-6 Sol, given the same evidence in one prompt</b>: ${l.correct} correct, ${l.safe} safe, ${l.wrong} wrong, ${l.failed} failed. It makes the fewest wrong calls of any policy, but routes ${(l.manualShare * 100).toFixed(0)}% of mornings to a person or fails, against ${(j.manualShare * 100).toFixed(0)}% for v2.1, so the purchase manager still decides almost every morning by hand. Because routed recommendations are not carried out in the simulation, it recommends ${inr(l.spend)} lakh of purchases and ends with ${l.short} short production days; in practice a person would act on those mornings. Per morning it costs ${fmtUsd(l.usdPerMorning)} against ${fmtUsd(j.usdPerMorning)} and takes ${fmtMs(l.medianMs)} against ${fmtMs(j.medianMs)}.`); }
     if (has('reorder_rule')) f.push(`<b>Rules without reading.</b> Doing nothing leaves ${st.do_nothing.short} short production days in the rain shock. The fixed reorder rule avoids them but recommends ${inr(st.reorder_rule.spend)} lakh of spot lots, against ${inr(st['v2.1']?.spend ?? 0)} lakh for v2.1.`);
     $('findings').innerHTML = f.map(x => `<li>${x}</li>`).join('');
 

@@ -2,13 +2,15 @@
 
 A daily decision circuit for a Pune maker of ready-to-cook gravies that buys onion (kanda) through the Lasalgaon mandi. Every morning at 07:00 it reads that day's evidence and recommends one purchase action, one production action and a release status to the purchase manager. The circuit is 20 Jev gates in five stages and contains no code logic. It recommends only.
 
-Status: **three circuit versions run live** on 24 September 2026 with Jev `jev-1.13.0`, plus an `openai/gpt-6-sol` baseline through OpenRouter that stopped on account credit. Results are below. Not deployed.
+Status: **five circuit versions, one LLM baseline and two fixed rules recorded live** on 24 September 2026 with Jev `jev-1.13.0` and `openai/gpt-6-sol` through OpenRouter. Scenario 1.1.0 is current. Page: `page/index.html` with `page/data.json`, built from recorded runs only. Not deployed.
 
 | Version | File | Gates |
 | --- | --- | --- |
 | v1.0.0 | `circuit.json` | 20 Jev gates |
 | v1.1.0 | `circuit-v1.1.json` | 23 Jev gates; the supply-gap gate becomes a Jev AND over three literal questions |
+| v1.2.0 | `circuit-v1.2.json` | v1.1 with the "cover on order" gate narrowed to flakes, and the purchase gate reading the policy |
 | v2.0.0 | `circuit-v2.json` | 17 Jev gates + 3 compute gates (`compute.mjs`) for the date window, shortage projection and spend check |
+| v2.1.0 | `circuit-v2.1.json` | v2.0 with policy clause (f), the purchase-size rule, applied in the projection gate |
 
 ## Files
 
@@ -20,7 +22,9 @@ Status: **three circuit versions run live** on 24 September 2026 with Jev `jev-1
 | `season.mjs` | Runs one scenario and seed as a closed loop, plus two baselines: do nothing, and a fixed reorder rule |
 | `providers.mjs` | Jev and OpenRouter adapters: bounded retries, answer validation, no substituted answers |
 | `run.mjs` | Runs seasons against the providers and writes traces, usage, latency and cost to `runs/<name>/` |
-| `compute.mjs` | The three compute gates used by v2.0.0. They read stock records only; the shortage projection reuses the rulebook's arithmetic, not its permitted sets |
+| `compute.mjs` | Compute gates for v2.x. They read stock records only; the shortage projection reuses the rulebook's arithmetic, and v2.1's variant also applies policy clause (f) |
+| `build-page-data.mjs` | Builds `page/data.json` from recorded runs |
+| `page/index.html` | The interactive page: scoreboard, yearly cost, season explorer with each morning's evidence and recorded gate answers |
 
 ## Scenarios
 
@@ -46,26 +50,32 @@ NODE_USE_ENV_PROXY=1 node examples/kanda-desk/run.mjs --max-usd 15 --out example
 
 Needs `TYPESAFE_API_KEY` and `OPENROUTER_API_KEY` in the environment. `NODE_USE_ENV_PROXY=1` is only needed where outbound HTTPS must go through `HTTPS_PROXY`; Node's built-in `fetch` ignores it otherwise.
 
-## Results, 24 September 2026
+## Results, scenario 1.1.0 (`runs/2026-09-24-s1.1/`)
 
-4 scenarios × 3 seeds × 16 mornings = 192 mornings per policy. Runs: `runs/2026-09-24/` (v1.0.0, LLM, baselines), `runs/2026-09-24-v1.1/`, `runs/2026-09-24-v2.0/`. Total provider spend $1.34.
+4 scenarios × 3 seeds × 16 mornings = 192 mornings per policy. Provider spend for these runs: $1.88.
 
-| Policy | Correct | Safe | Wrong | Failed | Spend recommended | Short days to Diwali | Provider cost | Median time per morning |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Jev circuit v1.0.0 | 101 | 13 | 78 | 0 | ₹1,452 lakh | 0 | $0.068 | 0.8 s |
-| Jev circuit v1.1.0 | 122 | 39 | 31 | 0 | ₹50 lakh | 17 | $0.064 | 0.8 s |
-| Hybrid circuit v2.0.0 | 148 | 25 | 19 | 0 | ₹423 lakh | 2 | $0.057 | 0.8 s |
-| GPT-6 Sol, one prompt | 58 | 87 | 6 | 41 | ₹22 lakh | 9 | $1.15 | 12–20 s |
-| Do nothing | 110 | 40 | 42 | 0 | ₹0 | 17 | – | – |
-| Fixed reorder rule | 110 | 47 | 35 | 0 | ₹195 lakh | 0 | – | – |
+| Policy | Correct | Safe | Wrong | Failed | Routed to a person | Purchases recommended | Short days to Diwali | Provider cost / morning | Median time / morning |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Hybrid v2.1 | 133 | 50 | 9 | 0 | 3% | ₹114 lakh | 3 | $0.0003 | 0.9 s |
+| Hybrid v2.0 | 139 | 39 | 14 | 0 | 3% | ₹330 lakh | 1 | $0.0003 | 0.9 s |
+| Pure Jev v1.2 | 154 | 20 | 18 | 0 | 3% | ₹52 lakh | 17 | $0.0003 | 0.9 s |
+| Pure Jev v1.1 | 141 | 15 | 36 | 0 | 3% | ₹52 lakh | 17 | $0.0003 | 0.8 s |
+| Pure Jev v1.0 | 74 | 15 | 103 | 0 | 3% | ₹1,866 lakh | 0 | $0.0004 | 0.9 s |
+| GPT-6 Sol, one prompt | 75 | 112 | 5 | 0 | 97% | ₹0 lakh | 17 | $0.0082 | 10.1 s |
+| Fixed reorder rule | 110 | 47 | 35 | 0 | 0% | ₹195 lakh | 0 | – | – |
+| Do nothing | 110 | 40 | 42 | 0 | 0% | ₹0 lakh | 17 | – | – |
 
 What the traces show:
 
-- v1.0.0 over-buys. Its supply-gap gate (J12) often puts most probability on "more than a week" of shortage when the rulebook's projection is zero, and the purchase multiplexer then picks the spot lot with low confidence. J12 asks the model to compare dates and tonnages, which TypeSafe's own notes on Jev 1.13 list as a weakness.
-- v1.1.0 stops over-buying: no wrong mornings in the normal, strike and manipulative-agent scenarios. It fails the rain shock. The Jev AND gate fires correctly, but the purchase multiplexer picks a spot lot over flakes, and once anything is on order the "cover on order" gate switches the shortage signal off, so the late gap is never covered (17 short days, as many as doing nothing).
-- v2.0.0 makes no wrong call outside the rain shock. In the rain shock it keeps buying 60 t spot lots that remove about 3 t of shortfall each, because nothing in the circuit or the state says how much shortfall justifies a lot. The rulebook applies a threshold (15 t for a spot lot, 5 t for flakes) that the company policy shown to every policy never states. That is a flaw in the scenario, not only in the circuit.
-- All 41 LLM failures are HTTP 402 from OpenRouter: the account ran out of credit mid-run. Those seasons stopped deciding, so the LLM row is incomplete.
-- The LLM routes most mornings to the purchase head. That is graded "safe", but it leaves the manager doing the work.
+- Pure Jev v1.0 over-buys: its supply-gap gate asks Jev to compare dates and tonnages, a documented jev-1.13 weakness.
+- Pure Jev v1.2 stops over-buying, but all 18 wrong mornings are in the rain shock and it leaves 17 short days, as many as doing nothing. From text alone it cannot tell whether a purchase covers a gap two weeks out.
+- Hybrid v2.1 makes the fewest wrong calls of the policies that decide on their own: none of its 9 wrong calls is a purchase. Its "safe" mornings mostly release without flagging the agent's unsupported claims.
+- GPT-6 Sol makes the fewest wrong calls overall, but routes 97% of mornings to the purchase head. Routed recommendations are not carried out in the simulation, so it buys nothing and ends with 17 short days; in practice a person would decide those mornings by hand.
+- Per morning the LLM costs about 27× more than the circuit and takes about 12× longer.
+
+Caveats: synthetic scenarios; provisional rulebook; one run per morning, no repeat sampling; the LLM prompt was written once and not tuned; v2.x compute gates reuse the rulebook's shortage arithmetic, and v2.1 also applies policy clause (f) in code, so its purchase choices are partly checked against a rule they were given.
+
+Runs on scenario 1.0.0 (`runs/2026-09-24/`, `-v1.1/`, `-v2.0/`) are kept as the record of the first attempt. That scenario's policy text omitted the purchase-size rule the rulebook applied, and 41 of its LLM calls failed on OpenRouter credit.
 
 ## Check
 
